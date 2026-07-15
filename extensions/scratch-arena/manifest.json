@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Scratch Arena",
+  "version": "1.0",
+  "description": "Coding Arena in Scratch.",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://scratch.mit.edu/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://scratch.mit.edu/projects/*/editor*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["inject.js"],
+      "matches": ["https://scratch.mit.edu/*"]
+    }
+  ]
+}
