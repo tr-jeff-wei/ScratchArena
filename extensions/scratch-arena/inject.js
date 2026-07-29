@@ -239,14 +239,24 @@
                 return [...names];
             }
 
-            function getAllScoreValues(targets) {
-                const scoreMap = {};
+            function checkModifyScoreVar(targets) {
+                let foundScore = false ;
                 targets.forEach(target => {
-                    const name = target.sprite?.name || (typeof target.getName === 'function' ? target.getName() : 'unknown');
-                    const scoreVariable = Object.values(target.variables || {}).find(v => v.name === 'score');
-                    if (scoreVariable) scoreMap[name] = scoreVariable.value;
+                    const name = target.sprite?.name ;
+                    if( name =='Player'){                        
+                        for (const blockId in target.blocks._blocks) {
+                            const block = target.blocks._blocks[blockId];
+                            if (block.opcode && (block.opcode === "data_changevariableby" || block.opcode === "data_setvariableto") && block.fields) {
+                                const varName = block.fields.VARIABLE?.value || block.fields.VAR?.value;
+                                if (varName === 'Score') {
+                                    foundScore = true;                                    
+                                }
+                            }
+                        }
+                    }
+                                         
                 });
-                return scoreMap;
+                return foundScore;
             }
 
             function renderConstraintItem(text, status) {
@@ -278,7 +288,8 @@
                 const playerY = player ? Math.round(player.y * 100) / 100 : '未找到';
                 let playerVelocity = 0;
                 if ( playerPreX && playerPreY ) {
-                    playerVelocity = Math.sqrt((playerX - playerPreX)*(playerX - playerPreX) + (playerY - playerPreY)*(playerY - playerPreY));
+                    playerVelocity = Math.floor(
+                        Math.sqrt((playerX - playerPreX)*(playerX - playerPreX) + (playerY - playerPreY)*(playerY - playerPreY)));
                 }
                 playerPreX = playerX;
                 playerPreY = playerY;                
@@ -286,20 +297,14 @@
                 const playerSpeed = player ? Math.round(playerVelocity * 100) / 300 : '未找到';
                 const endingCostume = getCostumeName(ending);
 
-                const currentScoreState = getAllScoreValues(targets);
-                if (initialScoreState === null) initialScoreState = currentScoreState;
-
                 const nonPlayerTargets = targets.filter(t => {
                     const name = t.sprite?.name || (typeof t.getName === 'function' ? t.getName() : undefined);
                     return name !== 'Player';
                 });
                 if (initialNonPlayerState === null) initialNonPlayerState = getNonPlayerState(targets);
 
-                const scoreStatus = (Object.keys(initialScoreState).length === 0 && Object.keys(currentScoreState).length === 0)
-                    ? 'unknown'
-                    : compareState(initialScoreState, currentScoreState)
-                        ? 'pass'
-                        : 'fail';
+                const scoreStatus = checkModifyScoreVar(targets) ? 'fail' : 'pass';
+                 
 
                 const nonPlayerStatus = (initialNonPlayerState === null)
                     ? 'unknown'
@@ -322,7 +327,7 @@
                         : 'fail';
 
                 const constraintHtml = [
-                    renderConstraintItem('不能修改變數 score', scoreStatus),
+                    renderConstraintItem('不能修改變數 Score', scoreStatus),
                     renderConstraintItem('不能更動所有非玩家的角色內容', nonPlayerStatus),
                     renderConstraintItem('Player 角色不能使用所有非玩家角色的廣播事件，但可以建構新的廣播事件', broadcastStatus),
                     renderConstraintItem('Player 每次移動限制速度 < 10', speedStatus)
