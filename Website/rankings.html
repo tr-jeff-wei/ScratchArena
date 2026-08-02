@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rankings — ScratchArena</title>
+  <meta name="description" content="Browse the live leaderboard for every ScratchArena challenge." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="sa-bg-field"></div>
+  <div id="navbar-root"></div>
+
+  <main>
+    <div class="container-narrow section">
+      <div class="fade-in-up">
+        <h1 class="section-title" style="font-size:1.75rem;">Rankings</h1>
+        <p class="section-desc">Select an arena to view its live leaderboard.</p>
+      </div>
+
+      <div class="rankings-tabs fade-in-up" style="animation-delay:0.08s; margin-top:24px;" id="rankings-tabs"></div>
+
+      <div id="rankings-board-root"></div>
+    </div>
+  </main>
+
+  <div id="footer-root"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/extensionApi.js"></script>
+  <script src="js/components.js"></script>
+  <script src="js/rankings.js"></script>
+</body>
+</html>

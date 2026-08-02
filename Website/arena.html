@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arena — ScratchArena</title>
+  <meta name="description" content="Enter the arena: view the mission briefing, run the challenge, and climb the live leaderboard." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="sa-bg-field"></div>
+  <div id="navbar-root"></div>
+
+  <main>
+    <div class="arena-header" id="arena-header"></div>
+
+    <div class="arena-layout container">
+      <div id="viewer-root"></div>
+      <div class="panel-sticky" id="instructions-root"></div>
+    </div>
+
+    <div class="container" style="padding: 0 24px 56px;" id="leaderboard-root"></div>
+  </main>
+
+  <div id="footer-root"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/extensionApi.js"></script>
+  <script src="js/components.js"></script>
+  <script src="js/arena.js"></script>
+</body>
+</html>

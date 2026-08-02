@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ScratchArena — The Ultimate Coding Challenge</title>
+  <meta name="description" content="A gamified competitive learning platform for Scratch. Battle through coding arenas, climb the leaderboard, and prove your block-code mastery." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="sa-bg-field"></div>
+  <div id="navbar-root"></div>
+
+  <main>
+    <section class="hero">
+      <div class="hero-inner">
+        <div class="fade-in-up">
+          <div style="display:flex; justify-content:center;">
+            <!-- logo injected by dashboard.js -->
+            <div id="hero-logo"></div>
+          </div>
+        </div>
+        <div class="fade-in-up" style="animation-delay:0.08s;">
+          <h1 class="hero-title font-display">
+            <span class="grad-text-orange">Scratch</span><span class="grad-text-steel">Arena</span>
+          </h1>
+          <p class="hero-sub">The Ultimate Coding Challenge</p>
+        </div>
+        <p class="hero-desc fade-in-up" style="animation-delay:0.16s;">
+          Pick an arena, follow the mission brief, and prove your block-code mastery.
+          Every run is graded, ranked, and pushed straight to the live leaderboard.
+        </p>
+        <div class="hero-actions fade-in-up" style="animation-delay:0.24s;">
+          <a href="arena.html?level=1" class="btn btn-primary clip-btn">Enter Arena</a>
+          <a href="#levels" class="btn btn-outline clip-btn">Browse Levels</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats-strip">
+      <div class="container stats-grid" id="stats-grid"></div>
+    </section>
+
+    <section class="section container" id="levels">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Select Your Arena</h2>
+          <p class="section-desc">Six live challenges. New arenas drop weekly.</p>
+        </div>
+      </div>
+      <div class="level-grid" id="level-grid"></div>
+    </section>
+  </main>
+
+  <div id="footer-root"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/extensionApi.js"></script>
+  <script src="js/components.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>
