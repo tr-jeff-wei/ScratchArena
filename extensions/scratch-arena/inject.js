@@ -30,6 +30,7 @@
                 if (current.memoizedProps?.store || current.pendingProps?.store) {
                     const store = current.memoizedProps?.store || current.pendingProps?.store;
                     console.log("store => ", store);
+                    window.__scratchArenaStore = store;
                     vm = store.getState().scratchGui?.vm;
                     if (vm) break;
                 }
@@ -69,11 +70,56 @@
                         backdrop-filter: blur(10px);
                         font: 12px/1.5 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
                     }
+                    #${overlayId} .panel-header {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 10px;
+                        margin-bottom: 10px;
+                    }
                     #${overlayId} h4 {
-                        margin: 0 0 8px;
+                        margin: 0;
                         font-size: 13px;
                         letter-spacing: 0.03em;
                         color: #a7d2ff;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                    }
+                    #${overlayId} .toggle-button {
+                        appearance: none;
+                        border: 1px solid rgba(255,255,255,0.18);
+                        background: rgba(255,255,255,0.08);
+                        color: #f8f8f2;
+                        border-radius: 999px;
+                        width: 28px;
+                        height: 28px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        line-height: 1;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                    #${overlayId} .toggle-button:hover {
+                        background: rgba(255,255,255,0.14);
+                    }
+                    #${overlayId}.collapsed {
+                        min-width: 80px;
+                        max-width: 80px;
+                        padding: 10px;
+                    }
+                    #${overlayId}.collapsed .panel-header {
+                        margin-bottom: 0;
+                    }
+                    #${overlayId}.collapsed .field,
+                    #${overlayId}.collapsed .constraint-box {
+                        display: none;
+                    }
+                    #${overlayId}.collapsed .status-pill,
+                    #${overlayId}.collapsed .constraint-title,
+                    #${overlayId}.collapsed .constraint-list {
+                        display: none;
                     }
                     #${overlayId} .field {
                         margin: 4px 0;
@@ -165,8 +211,24 @@
 
                 overlay = document.createElement('div');
                 overlay.id = overlayId;
-                overlay.innerHTML = '<h4>Scratch Arena</h4><div id="scratch-arena-info-body">等待 VM 初始化...</div>';
+                overlay.innerHTML = `
+                    <div class="panel-header">
+                        <h4>Scratch Arena</h4>
+                        <button id="${overlayId}-toggle" class="toggle-button" aria-expanded="true" aria-label="Collapse panel">−</button>
+                    </div>
+                    <div id="scratch-arena-info-body">等待 VM 初始化...</div>
+                `;
                 document.body.appendChild(overlay);
+
+                const toggleButton = overlay.querySelector(`#${overlayId}-toggle`);
+                if (toggleButton) {
+                    toggleButton.addEventListener('click', () => {
+                        const collapsed = overlay.classList.toggle('collapsed');
+                        toggleButton.textContent = collapsed ? '+' : '−';
+                        toggleButton.setAttribute('aria-expanded', (!collapsed).toString());
+                    });
+                }
+
                 return overlay;
             }
 
@@ -239,22 +301,92 @@
                 return [...names];
             }
 
+            function getShareButton() {
+                const selectors = [
+                    'button[aria-label="Share"]',
+                    'button[aria-label="分享"]',
+                    'button[aria-label="Unshare"]',
+                    'button[aria-label="取消分享"]',
+                    'button[data-test="share-button"]',
+                    'button[data-testid="share-button"]',
+                    'button[class*="share"]',
+                    'button[title*="Share"]',
+                    'button[title*="分享"]'
+                ];
+                for (const selector of selectors) {
+                    const button = document.querySelector(selector);
+                    if (button) return button;
+                }
+                return Array.from(document.querySelectorAll('button, a')).find(el => {
+                    const text = (el.textContent || '').trim().toLowerCase();
+                    return text === 'share' || text === 'unshare' || text === '分享' || text === '已分享' || text === '取消分享';
+                }) || null;
+            }
+
+            function getProjectShareStatus() {
+                const store = window.__scratchArenaStore;
+                if (store && typeof store.getState === 'function') {
+                    const state = store.getState();
+                    const sharePaths = [
+                        state.scratchGui?.projectInfo,
+                        state.scratchGui?.projectState,
+                        state.scratchGui?.sharingState,
+                        state.scratchGui?.sharedProject,
+                        state.scratchGui?.project?.sharingState,
+                        state.scratchGui?.project?.shared
+                    ];
+                    for (const candidate of sharePaths) {
+                        if (candidate == null) continue;
+                        if (typeof candidate === 'boolean') {
+                            return candidate ? 'pass' : 'fail';
+                        }
+                        if (typeof candidate === 'string') {
+                            const text = candidate.trim().toLowerCase();
+                            if (text === 'shared' || text === '已分享' || text === 'true') return 'pass';
+                            if (text === 'unshared' || text === 'share' || text === '分享' || text === 'false') return 'fail';
+                        }
+                        if (typeof candidate === 'object') {
+                            if (typeof candidate.shared === 'boolean') {
+                                return candidate.shared ? 'pass' : 'fail';
+                            }
+                            if (typeof candidate.sharingState === 'string') {
+                                const text = candidate.sharingState.trim().toLowerCase();
+                                if (text === 'shared' || text === '已分享') return 'pass';
+                                if (text === 'unshared' || text === 'share' || text === '分享') return 'fail';
+                            }
+                        }
+                    }
+                }
+
+                const button = getShareButton();
+                if (!button) return 'unknown';
+                const text = (button.textContent || '').trim().toLowerCase();
+                if (!text) return 'unknown';
+                if (text.includes('unshare') || text.includes('shared') || text.includes('已分享') || text.includes('取消分享')) {
+                    return 'pass';
+                }
+                if (text.includes('share') || text.includes('分享')) {
+                    return 'fail';
+                }
+                return 'unknown';
+            }
+
             function checkModifyScoreVar(targets) {
-                let foundScore = false ;
+                let foundScore = false;
                 targets.forEach(target => {
-                    const name = target.sprite?.name ;
-                    if( name =='Player'){                        
-                        for (const blockId in target.blocks._blocks) {
-                            const block = target.blocks._blocks[blockId];
-                            if (block.opcode && (block.opcode === "data_changevariableby" || block.opcode === "data_setvariableto") && block.fields) {
+                    const name = target.sprite?.name;
+                    if (name === 'Player') {
+                        const blocks = target.blocks?._blocks || {};
+                        for (const blockId in blocks) {
+                            const block = blocks[blockId];
+                            if (block.opcode && (block.opcode === 'data_changevariableby' || block.opcode === 'data_setvariableto') && block.fields) {
                                 const varName = block.fields.VARIABLE?.value || block.fields.VAR?.value;
                                 if (varName === 'Score') {
-                                    foundScore = true;                                    
+                                    foundScore = true;
                                 }
                             }
                         }
                     }
-                                         
                 });
                 return foundScore;
             }
@@ -304,7 +436,7 @@
                 if (initialNonPlayerState === null) initialNonPlayerState = getNonPlayerState(targets);
 
                 const scoreStatus = checkModifyScoreVar(targets) ? 'fail' : 'pass';
-                 
+                const shareStatus = getProjectShareStatus();
 
                 const nonPlayerStatus = (initialNonPlayerState === null)
                     ? 'unknown'
@@ -327,6 +459,7 @@
                         : 'fail';
 
                 const constraintHtml = [
+                    renderConstraintItem('專案需為 [已分享] 狀態', shareStatus),
                     renderConstraintItem('不能修改變數 Score', scoreStatus),
                     renderConstraintItem('不能更動所有非玩家的角色內容', nonPlayerStatus),
                     renderConstraintItem('Player 角色不能使用所有非玩家角色的廣播事件，但可以建構新的廣播事件', broadcastStatus),
@@ -340,7 +473,7 @@
                     <div class="field"><span class="label">Ending Status costume:</span> <span class="value">${endingCostume}</span></div>
                     <div class="field"><span class="label">Project status:</span> <span class="value"><span class="status-pill ${projectStatus}">${projectStatus}</span></span></div>
                     <div class="constraint-box">
-                        <div class="constraint-title">限制條件檢查</div>
+                        <div class="constraint-title"專案條件檢查</div>
                         <ul class="constraint-list">
                             ${constraintHtml}
                         </ul>
