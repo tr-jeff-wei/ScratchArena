@@ -151,12 +151,14 @@
                         font-size: 11px;
                         letter-spacing: 0.02em;
                     }
-                    #${overlayId} .status-pill.running {
+                    #${overlayId} .status-pill.running,
+                    #${overlayId} .status-pill.pass {
                         color: #9ef2c1;
                         background: rgba(38, 161, 105, 0.16);
                         border: 1px solid rgba(38, 161, 105, 0.28);
                     }
-                    #${overlayId} .status-pill.stopped {
+                    #${overlayId} .status-pill.stopped,
+                    #${overlayId} .status-pill.fail {
                         color: #ffb7b8;
                         background: rgba(198, 73, 88, 0.16);
                         border: 1px solid rgba(198, 73, 88, 0.28);
@@ -206,6 +208,58 @@
                     #${overlayId} .constraint-item.unknown .constraint-icon {
                         color: #f9d56e;
                     }
+                    #${overlayId} .comparison-box {
+                        margin-top: 14px;
+                        padding-top: 10px;
+                        border-top: 1px solid rgba(255,255,255,0.12);
+                    }
+                    #${overlayId} .comparison-title {
+                        margin: 0 0 8px;
+                        font-size: 11px;
+                        color: #c3cbe3;
+                    }
+                    #${overlayId} .comparison-summary {
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        margin-bottom: 8px;
+                        font-size: 11px;
+                        color: #d7d7e0;
+                    }
+                    #${overlayId} .comparison-message {
+                        color: #d7d7e0;
+                        font-size: 11px;
+                        line-height: 1.4;
+                    }
+                    #${overlayId} .comparison-list {
+                        list-style: none;
+                        padding: 0;
+                        margin: 0;
+                    }
+                    #${overlayId} .comparison-item {
+                        margin: 8px 0;
+                        padding: 10px;
+                        border: 1px solid rgba(255,255,255,0.08);
+                        border-radius: 10px;
+                        background: rgba(255,255,255,0.04);
+                    }
+                    #${overlayId} .comparison-item-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        gap: 10px;
+                        margin-bottom: 6px;
+                        font-size: 11px;
+                    }
+                    #${overlayId} .comparison-item-name {
+                        font-weight: 700;
+                        color: #f8f8f2;
+                    }
+                    #${overlayId} .comparison-item-detail {
+                        color: #d7d7e0;
+                        font-size: 11px;
+                        line-height: 1.4;
+                    }
                 `;
                 document.head.appendChild(style);
 
@@ -248,7 +302,220 @@
             }
 
             let initialScoreState = null;
-            let initialNonPlayerState = null;
+            let remixComparison = null;
+            let remixComparisonStatus = 'unknown';
+
+            function getProjectIdFromUrl() {
+                const match = location.href.match(/projects\/(\d+)/) || location.pathname.match(/projects\/(\d+)/);
+                return match ? match[1] : null;
+            }
+
+            async function fetchJson(url, options = {}) {
+                const response = await fetch(url, Object.assign({ mode: 'cors' }, options));
+                if (!response.ok) throw new Error(`${url} ${response.status}`);
+                return await response.json();
+            }
+
+            async function getRemixSourceProjectId(projectId) {
+                const meta = await fetchJson(`https://api.scratch.mit.edu/projects/${projectId}`);
+                return meta?.remix?.root || null;
+            }
+            
+            async function getProjectToken(projectId) {
+                const meta = await fetchJson(`https://api.scratch.mit.edu/projects/${projectId}`);
+                return  meta?.project_token|| null;
+            }
+
+            async function loadProjectJson(projectId , token = null) {
+                const endpoints = [
+                    `https://projects.scratch.mit.edu/${projectId}?token=${token}`
+                ];
+                let lastError = null;
+                for (const url of endpoints) {
+                    try {
+                        console.log(`嘗試從 ${url} 取得專案 JSON...`);
+                        return await fetchJson(url, { headers: { Accept: 'application/json' }, credentials: 'omit' });
+                    } catch (err) {
+                        lastError = err;
+                        console.warn(`ScratchArena: 無法從 ${url} 取得專案 JSON：`, err.message || err);
+                        if (err.message && err.message.includes('403')) {
+                            continue;
+                        }
+                    }
+                }
+                throw new Error(`無法下載專案 JSON，最後一次錯誤：${lastError?.message || '未知'}`);
+            }
+
+            function getCurrentProjectJson() {
+                if (vm && typeof vm.toJSON === 'function') {
+                    try {
+                        return vm.toJSON();
+                    } catch (err) {
+                        return null;
+                    }
+                }
+                return null;
+            }
+
+            function normalizeTargetName(target) {
+                return target.name || target.sprite?.name || (typeof target.getName === 'function' ? target.getName() : 'unknown');
+            }
+
+            function normalizeCostumes(costumes) {
+                return (Array.isArray(costumes) ? costumes : []).map(c => ({
+                    name: c.name,
+                    md5ext: c.md5ext,
+                    rotationCenterX: c.rotationCenterX,
+                    rotationCenterY: c.rotationCenterY
+                })).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            }
+
+            function normalizeVariables(variables) {
+                const entries = Array.isArray(variables) ? variables : Object.values(variables || {});
+                return entries.map(v => {
+                    if (Array.isArray(v) && v.length >= 2) {
+                        return { name: v[1], value: v[2] };
+                    }
+                    return { name: v.name || '', value: typeof v.value !== 'undefined' ? v.value : null };
+                }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            }
+
+            function normalizeBlocks(blocks) {
+                const rawBlocks = blocks?._blocks || blocks || {};
+                const targetBlocks = Array.isArray(rawBlocks) ? rawBlocks : Object.values(rawBlocks);
+                return targetBlocks
+                    .filter(block => block && typeof block.id === 'string')
+                    .map(block => ({
+                        id: block.id,
+                        opcode: block.opcode,
+                        inputs: block.inputs,
+                        fields: block.fields,
+                        next: block.next,
+                        parent: block.parent,
+                        topLevel: block.topLevel,
+                        shadow: block.shadow
+                    }))
+                    .sort((a, b) => a.id.localeCompare(b.id));
+            }
+
+            function jsonEqual(a, b) {
+                return JSON.stringify(a) === JSON.stringify(b);
+            }
+
+            function compareSprite(source, current) {
+                if (!source && !current) {
+                    return { overallMatch: true, costumesMatch: true, scriptsMatch: true, variablesMatch: true, missing: false };
+                }
+                if (!source || !current) {
+                    return { overallMatch: false, costumesMatch: false, scriptsMatch: false, variablesMatch: false, missing: true };
+                }
+                const costumesMatch = jsonEqual(normalizeCostumes(source.costumes), normalizeCostumes(current.costumes));
+                const scriptsMatch = jsonEqual(normalizeBlocks(source.blocks), normalizeBlocks(current.blocks));
+                const variablesMatch = jsonEqual(normalizeVariables(source.variables), normalizeVariables(current.variables));
+                return {
+                    overallMatch: costumesMatch && scriptsMatch && variablesMatch,
+                    costumesMatch,
+                    scriptsMatch,
+                    variablesMatch,
+                    missing: false
+                };
+            }
+
+            async function compareProjectToRemixSource() {
+                const projectId = getProjectIdFromUrl();
+                if (!projectId) {
+                    return { status: 'unknown', details: [], error: '無法取得專案 ID' };
+                }
+
+                try {
+                    const remixSourceId = await getRemixSourceProjectId(projectId);
+                    console.log("remixSourceId => ", remixSourceId);
+                    if (!remixSourceId) {
+                        return { status: 'unknown', details: [], error: '無法取得 remix source ID' };
+                    }
+                    const currentProjectToken = await getProjectToken(projectId);
+                    const currentJson = getCurrentProjectJson() || await loadProjectJson(projectId , currentProjectToken);
+                    const remixSourceToken = await getProjectToken(remixSourceId);
+                    const sourceJson = await loadProjectJson(remixSourceId , remixSourceToken);
+                    const currentTargets = currentJson?.targets || [];
+                    const sourceTargets = sourceJson?.targets || [];
+                    const sourceMap = new Map(sourceTargets.map(t => [normalizeTargetName(t), t]));
+                    const currentMap = new Map(currentTargets.map(t => [normalizeTargetName(t), t]));
+                    const spriteNames = new Set([...sourceMap.keys(), ...currentMap.keys()]);
+                    spriteNames.delete('Player');
+                    const details = [];
+
+                    spriteNames.forEach(name => {
+                        if (name === 'Player') return;
+                        const sourceTarget = sourceMap.get(name);
+                        const currentTarget = currentMap.get(name);
+                        const result = compareSprite(sourceTarget, currentTarget);
+                        const changedItems = [];
+                        if (result.missing) {
+                            changedItems.push(sourceTarget ? '缺少角色' : '新增角色');
+                        } else {
+                            if (!result.costumesMatch) changedItems.push('造型');
+                            if (!result.scriptsMatch) changedItems.push('程式');
+                            if (!result.variablesMatch) changedItems.push('變數');
+                        }
+                        details.push({
+                            name,
+                            overallMatch: result.overallMatch,
+                            costumesMatch: result.costumesMatch,
+                            scriptsMatch: result.scriptsMatch,
+                            variablesMatch: result.variablesMatch,
+                            changedItems,
+                            missing: result.missing
+                        });
+                    });
+
+                    const status = details.length === 0 ? 'unknown' : details.every(item => item.overallMatch) ? 'pass' : 'fail';
+                    return { status, details };
+                } catch (error) {
+                    return { status: 'unknown', details: [], error: error?.message || '比對失敗' };
+                }
+            }
+
+            function renderComparisonItem(item) {
+                const statusText = item.overallMatch ? '未修改' : '已修改';
+                const changedText = item.missing ? '角色數量變動' : (item.changedItems.length ? item.changedItems.join('、') : '無變更');
+                return `
+                    <li class="comparison-item ${item.overallMatch ? 'pass' : 'fail'}">
+                        <div class="comparison-item-header">
+                            <span class="comparison-item-name">${item.name}</span>
+                            <span class="status-pill ${item.overallMatch ? 'running' : 'stopped'}">${statusText}</span>
+                        </div>
+                        <div class="comparison-item-detail">差異：${changedText}</div>
+                        <div class="comparison-item-detail">造型：${item.costumesMatch ? '相同' : '不同'}，程式：${item.scriptsMatch ? '相同' : '不同'}，變數：${item.variablesMatch ? '相同' : '不同'}</div>
+                    </li>
+                `;
+            }
+
+            function renderRemixComparisonHtml(comparison) {
+                if (!comparison) {
+                    return '<div class="comparison-message">比對中...</div>';
+                }
+                if (comparison.error) {
+                    return `<div class="comparison-message">錯誤：${comparison.error}</div>`;
+                }
+                if (!comparison.details || comparison.details.length === 0) {
+                    return '<div class="comparison-message">未找到非 Player 角色可比對。</div>';
+                }
+                const title = comparison.status === 'pass' ? '全部相同' : comparison.status === 'fail' ? '已修改' : '未知';
+                return `
+                    <div class="comparison-summary">
+                        <span class="comparison-label">Remix 比對結果：</span>
+                        <span class="status-pill ${comparison.status}">${title}</span>
+                    </div>
+                    <ul class="comparison-list">
+                        ${comparison.details.map(item => renderComparisonItem(item)).join('')}
+                    </ul>
+                `;
+            }
+
+            compareProjectToRemixSource()
+                .then(result => { remixComparison = result; remixComparisonStatus = result.status; })
+                .catch(error => { remixComparison = { status: 'unknown', details: [], error: error?.message || '比對失敗' }; });
 
             function getProjectStatus(vmInstance) {
                 return vmInstance.runtime.threads.length > 0 ? 'running' : 'stopped';
@@ -433,16 +700,10 @@
                     const name = t.sprite?.name || (typeof t.getName === 'function' ? t.getName() : undefined);
                     return name !== 'Player';
                 });
-                if (initialNonPlayerState === null) initialNonPlayerState = getNonPlayerState(targets);
 
                 const scoreStatus = checkModifyScoreVar(targets) ? 'fail' : 'pass';
                 const shareStatus = getProjectShareStatus();
-
-                const nonPlayerStatus = (initialNonPlayerState === null)
-                    ? 'unknown'
-                    : compareState(initialNonPlayerState, getNonPlayerState(targets))
-                        ? 'pass'
-                        : 'fail';
+                const nonPlayerStatus = remixComparisonStatus === 'pass' ? 'pass' : remixComparisonStatus === 'fail' ? 'fail' : 'unknown';
 
                 const nonPlayerBroadcasts = new Set(getBroadcastNames({ blocks: nonPlayerTargets.flatMap(t => Object.values(t.blocks?._blocks || t.blocks || {})) }));
                 const playerBroadcasts = getBroadcastNames(player);
@@ -473,10 +734,16 @@
                     <div class="field"><span class="label">Ending Status costume:</span> <span class="value">${endingCostume}</span></div>
                     <div class="field"><span class="label">Project status:</span> <span class="value"><span class="status-pill ${projectStatus}">${projectStatus}</span></span></div>
                     <div class="constraint-box">
-                        <div class="constraint-title"專案條件檢查</div>
+                        <div class="constraint-title">專案條件檢查</div>
                         <ul class="constraint-list">
                             ${constraintHtml}
                         </ul>
+                        <div class="comparison-box">
+                            <div class="comparison-title">Remix source 比對結果</div>
+                            <div id="scratch-arena-remix-comparison">
+                                ${renderRemixComparisonHtml(remixComparison)}
+                            </div>
+                        </div>
                     </div>
                 `;
 
