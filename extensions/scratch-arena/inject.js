@@ -434,7 +434,7 @@
                         return { status: 'unknown', details: [], error: '無法取得 remix source ID' };
                     }
                     const currentProjectToken = await getProjectToken(projectId);
-                    const currentJson = getCurrentProjectJson() || await loadProjectJson(projectId , currentProjectToken);
+                    const currentJson = await loadProjectJson(projectId , currentProjectToken);
                     const remixSourceToken = await getProjectToken(remixSourceId);
                     const sourceJson = await loadProjectJson(remixSourceId , remixSourceToken);
                     const currentTargets = currentJson?.targets || [];
@@ -445,11 +445,18 @@
                     spriteNames.delete('Player');
                     const details = [];
 
+                    // console.log("==> currentMap === \n",currentMap ) ;
+                    // console.log("==> currentJson === \n",currentJson ) ;
+
                     spriteNames.forEach(name => {
+                        console.log("====== compare ===== name : ",name) ;
                         if (name === 'Player') return;
                         const sourceTarget = sourceMap.get(name);
                         const currentTarget = currentMap.get(name);
                         const result = compareSprite(sourceTarget, currentTarget);
+                        console.log("==> sourceTarget === \n",sourceTarget ) ;
+                        console.log("==> currentTarget === \n",currentTarget ) ;
+                        console.log("==> result === \n",result ) ;
                         const changedItems = [];
                         if (result.missing) {
                             changedItems.push(sourceTarget ? '缺少角色' : '新增角色');
