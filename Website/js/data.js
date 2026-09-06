@@ -10,6 +10,7 @@ const SA_LEVELS = [
     playerCount: 4821,
     highScore: 1500,
     maxScore: 2000,
+    releaseDate: "2025-11-03",
     thumbGradient: ["#3d5a80", "#182741"],
     instructions: [
       "Use only Motion and Looks blocks to guide the sprite to the flag.",
@@ -27,6 +28,7 @@ const SA_LEVELS = [
     playerCount: 3190,
     highScore: 2350,
     maxScore: 3000,
+    releaseDate: "2026-01-14",
     thumbGradient: ["#ff8c1a", "#b34d00"],
     instructions: [
       "Trigger the broadcast chain in the exact order shown in the spec panel.",
@@ -44,6 +46,7 @@ const SA_LEVELS = [
     playerCount: 1442,
     highScore: 4100,
     maxScore: 5000,
+    releaseDate: "2026-03-02",
     thumbGradient: ["#7ea8d8", "#24344a"],
     instructions: [
       "Use local variables only — global variable writes are disallowed.",
@@ -61,6 +64,7 @@ const SA_LEVELS = [
     playerCount: 987,
     highScore: 3760,
     maxScore: 5000,
+    releaseDate: "2026-04-18",
     thumbGradient: ["#ff9d2e", "#7ea8d8"],
     instructions: [
       "Build the truth table using only 'and', 'or', and 'not' operator blocks.",
@@ -78,6 +82,7 @@ const SA_LEVELS = [
     playerCount: 312,
     highScore: 4890,
     maxScore: 6000,
+    releaseDate: "2026-08-20",
     thumbGradient: ["#ffd23f", "#e56f00"],
     instructions: [
       "Only Pen extension blocks and Motion blocks are editable.",
@@ -95,6 +100,7 @@ const SA_LEVELS = [
     playerCount: 2578,
     highScore: 2900,
     maxScore: 3500,
+    releaseDate: "2026-02-09",
     thumbGradient: ["#5b7ea8", "#0f1a2e"],
     instructions: [
       "Implement the sort using only list blocks — no helper variables allowed.",
@@ -124,3 +130,42 @@ const SA_LEADERBOARDS = saBuildLeaderboards();
 function saGetLevel(id) {
   return SA_LEVELS.find((level) => level.id === id);
 }
+
+/** Difficulty ordering used by the "Hardest Arenas" project leaderboard. */
+const SA_DIFFICULTY_RANK = { rookie: 1, skilled: 2, expert: 3, legendary: 4 };
+
+/**
+ * Project (arena) leaderboard categories — each ranks the six arenas
+ * against each other by a different metric, distinct from the per-arena
+ * player leaderboards on the Rankings page.
+ */
+const SA_PROJECT_CATEGORIES = [
+  {
+    id: "popular",
+    label: "Most Popular",
+    description: "Ranked by total competitors entered.",
+    getValue: (l) => l.playerCount,
+    formatValue: (l) => `${l.playerCount.toLocaleString()} plays`,
+  },
+  {
+    id: "mastery",
+    label: "Top Mastery",
+    description: "Ranked by community high score as a % of the max possible score.",
+    getValue: (l) => l.highScore / l.maxScore,
+    formatValue: (l) => `${Math.round((l.highScore / l.maxScore) * 100)}% mastery`,
+  },
+  {
+    id: "hardest",
+    label: "Hardest Arenas",
+    description: "Ranked by difficulty tier, toughest first.",
+    getValue: (l) => SA_DIFFICULTY_RANK[l.difficulty],
+    formatValue: (l) => l.difficulty.charAt(0).toUpperCase() + l.difficulty.slice(1),
+  },
+  {
+    id: "newest",
+    label: "Newest Arenas",
+    description: "Ranked by release date, most recent first.",
+    getValue: (l) => new Date(l.releaseDate).getTime(),
+    formatValue: (l) => new Date(l.releaseDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+  },
+];

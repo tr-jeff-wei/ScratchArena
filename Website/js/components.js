@@ -61,6 +61,7 @@ SA.mountNavbar = function (activePage) {
     { href: "index.html", label: "Dashboard", key: "dashboard" },
     { href: "arena.html?level=1", label: "Arena", key: "arena" },
     { href: "rankings.html", label: "Rankings", key: "rankings" },
+    { href: "projects.html", label: "Projects", key: "projects" },
   ];
   const linksHTML = links
     .map(
@@ -116,6 +117,45 @@ SA.leaderboardRowHTML = function (entry) {
         <span class="player-date">${SA.formatDate(entry.updatedAt)}</span>
       </div>
       <div class="player-score">${entry.score.toLocaleString()}</div>
+    </div>
+  `;
+};
+
+/** Renders one row of the project (arena) leaderboard — ranks an arena, not a player. */
+SA.projectRowHTML = function (level, rank, category) {
+  const rankCls = SA_RANK_CLASS[rank] || "";
+  return `
+    <a href="arena.html?level=${level.id}" class="leaderboard-row project-row${rankCls ? " rank-glow" : ""}">
+      <div class="rank-badge ${rankCls}">${rank}</div>
+      <div class="leaderboard-player">
+        <div class="player-row">
+          <span class="player-name">${SA.escapeHTML(level.name)}</span>
+          ${SA.difficultyBadgeHTML(level.difficulty)}
+        </div>
+        <span class="player-date">${SA.escapeHTML(level.category)}</span>
+      </div>
+      <div class="player-score">${category.formatValue(level)}</div>
+    </a>
+  `;
+};
+
+/**
+ * Mounts the "Projects" leaderboard for one category into `container`: the
+ * six arenas ranked against each other by `category.getValue`.
+ */
+SA.mountProjectLeaderboard = function (container, category) {
+  const ranked = [...SA_LEVELS].sort((a, b) => category.getValue(b) - category.getValue(a));
+  container.innerHTML = `
+    <div class="leaderboard glow-border clip-panel">
+      <div class="leaderboard-header">
+        <div class="leaderboard-title">
+          <span class="leaderboard-dot"></span>
+          <h3 class="leaderboard-heading">${SA.escapeHTML(category.label)}</h3>
+        </div>
+      </div>
+      <div class="leaderboard-rows">
+        ${ranked.map((level, i) => SA.projectRowHTML(level, i + 1, category)).join("")}
+      </div>
     </div>
   `;
 };
