@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Sessions — ScratchArena</title>
+  <meta name="description" content="Real-time feed of ScratchArena game sessions, streamed live from Supabase." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="sa-bg-field"></div>
+  <div id="navbar-root"></div>
+
+  <main>
+    <div class="container-narrow section">
+      <div class="fade-in-up">
+        <h1 class="section-title" style="font-size:1.75rem;">Live Sessions</h1>
+        <p class="section-desc">A real-time feed of every game session, streamed straight from Supabase.</p>
+      </div>
+
+      <div class="fade-in-up" style="animation-delay:0.08s; margin-top:24px;" id="sessions-feed-root"></div>
+    </div>
+  </main>
+
+  <div id="footer-root"></div>
+
+  <!-- Supabase JS client (UMD build), exposes window.supabase.createClient -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="js/supabaseConfig.js"></script>
+  <script src="js/components.js"></script>
+  <script src="js/sessions.js"></script>
+</body>
+</html>

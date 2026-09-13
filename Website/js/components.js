@@ -62,6 +62,7 @@ SA.mountNavbar = function (activePage) {
     { href: "arena.html?level=1", label: "Arena", key: "arena" },
     { href: "rankings.html", label: "Rankings", key: "rankings" },
     { href: "projects.html", label: "Projects", key: "projects" },
+    { href: "sessions.html", label: "Live Sessions", key: "sessions" },
   ];
   const linksHTML = links
     .map(
