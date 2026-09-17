@@ -218,6 +218,29 @@
                         font-size: 11px;
                         color: #c3cbe3;
                     }
+                    #${overlayId} #scratch-arena-remix-comparison {
+                        max-height: 180px;
+                        overflow-y: auto;
+                        overflow-x: hidden;
+                        padding-right: 6px;
+                        scrollbar-width: thin;
+                        scrollbar-color: rgba(255,255,255,0.5) rgba(255,255,255,0.08);
+                    }
+                    #${overlayId} #scratch-arena-remix-comparison::-webkit-scrollbar {
+                        width: 8px;
+                    }
+                    #${overlayId} #scratch-arena-remix-comparison::-webkit-scrollbar-track {
+                        background: rgba(255,255,255,0.08);
+                        border-radius: 999px;
+                    }
+                    #${overlayId} #scratch-arena-remix-comparison::-webkit-scrollbar-thumb {
+                        background: rgba(255,255,255,0.5);
+                        border-radius: 999px;
+                        border: 2px solid rgba(255,255,255,0.08);
+                    }
+                    #${overlayId} #scratch-arena-remix-comparison::-webkit-scrollbar-thumb:hover {
+                        background: rgba(255,255,255,0.72);
+                    }
                     #${overlayId} .comparison-summary {
                         display: flex;
                         align-items: center;
@@ -361,62 +384,150 @@
                 return target.name || target.sprite?.name || (typeof target.getName === 'function' ? target.getName() : 'unknown');
             }
 
+            function normalizeForComparison(value) {
+                if (Array.isArray(value)) {
+                    return value.map(item => normalizeForComparison(item));
+                }
+                if (value && typeof value === 'object') {
+                    const normalized = {};
+                    Object.keys(value).sort().forEach(key => {
+                        if (key === 'id' || key === '_id') return;
+                        normalized[key] = normalizeForComparison(value[key]);
+                    });
+                    return normalized;
+                }
+                return value;
+            }
+
             function normalizeCostumes(costumes) {
                 return (Array.isArray(costumes) ? costumes : []).map(c => ({
-                    name: c.name,
-                    md5ext: c.md5ext,
-                    rotationCenterX: c.rotationCenterX,
-                    rotationCenterY: c.rotationCenterY
-                })).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                    name: c?.name || '',
+                    index: typeof c?.index === 'number' ? c.index : (typeof c?.assetIndex === 'number' ? c.assetIndex : null),
+                    assetId: c?.assetId || c?.md5ext || c?.md5 || ''
+                })).sort((a, b) => `${a.name}|${a.index ?? ''}|${a.assetId}`.localeCompare(`${b.name}|${b.index ?? ''}|${b.assetId}`));
             }
 
             function normalizeVariables(variables) {
                 const entries = Array.isArray(variables) ? variables : Object.values(variables || {});
                 return entries.map(v => {
-                    if (Array.isArray(v) && v.length >= 2) {
-                        return { name: v[1], value: v[2] };
+                    if (Array.isArray(v)) {
+                        const name = typeof v[1] === 'string' ? v[1] : (typeof v[0] === 'string' ? v[0] : '');
+                        const value = v[2] !== undefined ? v[2] : (v[1] !== undefined ? v[1] : null);
+                        return { name, value: normalizeForComparison(value) };
                     }
-                    return { name: v.name || '', value: typeof v.value !== 'undefined' ? v.value : null };
-                }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                    return { name: v?.name || '', value: normalizeForComparison(typeof v?.value !== 'undefined' ? v.value : null) };
+                }).filter(item => item.name || item.value !== null).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+            }
+
+            function normalizeLists(lists) {
+                const entries = Array.isArray(lists) ? lists : Object.values(lists || {});
+                return entries.map(v => {
+                    if (Array.isArray(v)) {
+                        const name = typeof v[1] === 'string' ? v[1] : (typeof v[0] === 'string' ? v[0] : '');
+                        const value = Array.isArray(v[2]) ? normalizeForComparison(v[2]) : normalizeForComparison(v[1] ?? []);
+                        return { name, value };
+                    }
+                    return { name: v?.name || '', value: normalizeForComparison(v?.contents ?? v?.value ?? []) };
+                }).filter(item => item.name || (Array.isArray(item.value) && item.value.length > 0)).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+            }
+
+            function normalizeBlockChain(blocksMap, startBlockId) {
+                const script = [];
+                let currentId = startBlockId;
+                while (currentId) {
+                    const block = blocksMap.get(currentId);
+                    if (!block) break;
+                    script.push({
+                        opcode: block.opcode,
+                        inputs: normalizeForComparison(block.inputs || {})
+                    });
+                    currentId = block.next || null;
+                }
+                return script;
             }
 
             function normalizeBlocks(blocks) {
                 const rawBlocks = blocks?._blocks || blocks || {};
-                const targetBlocks = Array.isArray(rawBlocks) ? rawBlocks : Object.values(rawBlocks);
-                return targetBlocks
-                    .filter(block => block && typeof block.id === 'string')
-                    .map(block => ({
-                        id: block.id,
-                        opcode: block.opcode,
-                        inputs: block.inputs,
-                        fields: block.fields,
-                        next: block.next,
-                        parent: block.parent,
-                        topLevel: block.topLevel,
-                        shadow: block.shadow
-                    }))
-                    .sort((a, b) => a.id.localeCompare(b.id));
+                const allBlocks = Array.isArray(rawBlocks) ? rawBlocks : Object.values(rawBlocks);
+                const blocksMap = new Map(allBlocks.filter(block => block && typeof block.id === 'string').map(block => [block.id, block]));
+                const topLevelBlocks = allBlocks.filter(block => block && typeof block.id === 'string' && block.topLevel === true);
+                const scriptChains = topLevelBlocks.map(block => normalizeBlockChain(blocksMap, block.id));
+                return scriptChains;
+            }
+
+            function normalizeCurrentCostume(currentCostume) {
+                if (typeof currentCostume === 'number') {
+                    return { index: currentCostume };
+                }
+                if (currentCostume && typeof currentCostume === 'object') {
+                    return {
+                        name: currentCostume.name || '',
+                        index: typeof currentCostume.index === 'number' ? currentCostume.index : null,
+                        assetId: currentCostume.assetId || currentCostume.md5ext || currentCostume.md5 || ''
+                    };
+                }
+                return currentCostume;
             }
 
             function jsonEqual(a, b) {
-                return JSON.stringify(a) === JSON.stringify(b);
+                return JSON.stringify(normalizeForComparison(a)) === JSON.stringify(normalizeForComparison(b));
             }
 
             function compareSprite(source, current) {
                 if (!source && !current) {
-                    return { overallMatch: true, costumesMatch: true, scriptsMatch: true, variablesMatch: true, missing: false };
+                    return {
+                        overallMatch: true,
+                        variablesMatch: true,
+                        listsMatch: true,
+                        blocksMatch: true,
+                        costumesMatch: true,
+                        currentCostumeMatch: true,
+                        directionMatch: true,
+                        sizeMatch: true,
+                        visibleMatch: true,
+                        nameMatch: true,
+                        missing: false
+                    };
                 }
                 if (!source || !current) {
-                    return { overallMatch: false, costumesMatch: false, scriptsMatch: false, variablesMatch: false, missing: true };
+                    return {
+                        overallMatch: false,
+                        variablesMatch: false,
+                        listsMatch: false,
+                        blocksMatch: false,
+                        costumesMatch: false,
+                        currentCostumeMatch: false,
+                        directionMatch: false,
+                        sizeMatch: false,
+                        visibleMatch: false,
+                        nameMatch: false,
+                        missing: true
+                    };
                 }
-                const costumesMatch = jsonEqual(normalizeCostumes(source.costumes), normalizeCostumes(current.costumes));
-                const scriptsMatch = jsonEqual(normalizeBlocks(source.blocks), normalizeBlocks(current.blocks));
+
+                const sourceName = normalizeTargetName(source);
+                const currentName = normalizeTargetName(current);
                 const variablesMatch = jsonEqual(normalizeVariables(source.variables), normalizeVariables(current.variables));
+                const listsMatch = jsonEqual(normalizeLists(source.lists), normalizeLists(current.lists));
+                const blocksMatch = jsonEqual(normalizeBlocks(source.blocks), normalizeBlocks(current.blocks));
+                const costumesMatch = jsonEqual(normalizeCostumes(source.costumes), normalizeCostumes(current.costumes));
+                const currentCostumeMatch = jsonEqual(normalizeCurrentCostume(source.currentCostume), normalizeCurrentCostume(current.currentCostume));
+                const directionMatch = Number(source.direction) === Number(current.direction);
+                const sizeMatch = Number(source.size) === Number(current.size);
+                const visibleMatch = source.visible === current.visible;
+                const nameMatch = sourceName === currentName;
+
                 return {
-                    overallMatch: costumesMatch && scriptsMatch && variablesMatch,
-                    costumesMatch,
-                    scriptsMatch,
+                    overallMatch: variablesMatch && listsMatch && blocksMatch && costumesMatch && currentCostumeMatch && directionMatch && sizeMatch && visibleMatch && nameMatch,
                     variablesMatch,
+                    listsMatch,
+                    blocksMatch,
+                    costumesMatch,
+                    currentCostumeMatch,
+                    directionMatch,
+                    sizeMatch,
+                    visibleMatch,
+                    nameMatch,
                     missing: false
                 };
             }
@@ -429,48 +540,53 @@
 
                 try {
                     const remixSourceId = await getRemixSourceProjectId(projectId);
-                    console.log("remixSourceId => ", remixSourceId);
+                    console.log('remixSourceId => ', remixSourceId);
                     if (!remixSourceId) {
                         return { status: 'unknown', details: [], error: '無法取得 remix source ID' };
                     }
                     const currentProjectToken = await getProjectToken(projectId);
-                    const currentJson = await loadProjectJson(projectId , currentProjectToken);
+                    const currentJson = await loadProjectJson(projectId, currentProjectToken);
                     const remixSourceToken = await getProjectToken(remixSourceId);
-                    const sourceJson = await loadProjectJson(remixSourceId , remixSourceToken);
+                    const sourceJson = await loadProjectJson(remixSourceId, remixSourceToken);
                     const currentTargets = currentJson?.targets || [];
                     const sourceTargets = sourceJson?.targets || [];
                     const sourceMap = new Map(sourceTargets.map(t => [normalizeTargetName(t), t]));
                     const currentMap = new Map(currentTargets.map(t => [normalizeTargetName(t), t]));
-                    const spriteNames = new Set([...sourceMap.keys(), ...currentMap.keys()]);
-                    spriteNames.delete('Player');
+                    const relevantNames = new Set([...sourceMap.keys(), ...currentMap.keys()].filter(name => name && name !== 'Player'));
                     const details = [];
 
-                    // console.log("==> currentMap === \n",currentMap ) ;
-                    // console.log("==> currentJson === \n",currentJson ) ;
-
-                    spriteNames.forEach(name => {
-                        console.log("====== compare ===== name : ",name) ;
-                        if (name === 'Player') return;
+                    Array.from(relevantNames).sort().forEach(name => {
                         const sourceTarget = sourceMap.get(name);
                         const currentTarget = currentMap.get(name);
                         const result = compareSprite(sourceTarget, currentTarget);
-                        console.log("==> sourceTarget === \n",sourceTarget ) ;
-                        console.log("==> currentTarget === \n",currentTarget ) ;
-                        console.log("==> result === \n",result ) ;
                         const changedItems = [];
+
                         if (result.missing) {
                             changedItems.push(sourceTarget ? '缺少角色' : '新增角色');
                         } else {
-                            if (!result.costumesMatch) changedItems.push('造型');
-                            if (!result.scriptsMatch) changedItems.push('程式');
                             if (!result.variablesMatch) changedItems.push('變數');
+                            if (!result.listsMatch) changedItems.push('清單');
+                            if (!result.blocksMatch) changedItems.push('程式');
+                            if (!result.costumesMatch) changedItems.push('造型');
+                            if (!result.currentCostumeMatch) changedItems.push('目前造型');
+                            if (!result.directionMatch) changedItems.push('方向');
+                            if (!result.sizeMatch) changedItems.push('大小');
+                            if (!result.visibleMatch) changedItems.push('顯示/隱藏');
+                            if (!result.nameMatch) changedItems.push('名稱');
                         }
+
                         details.push({
                             name,
                             overallMatch: result.overallMatch,
-                            costumesMatch: result.costumesMatch,
-                            scriptsMatch: result.scriptsMatch,
                             variablesMatch: result.variablesMatch,
+                            listsMatch: result.listsMatch,
+                            blocksMatch: result.blocksMatch,
+                            costumesMatch: result.costumesMatch,
+                            currentCostumeMatch: result.currentCostumeMatch,
+                            directionMatch: result.directionMatch,
+                            sizeMatch: result.sizeMatch,
+                            visibleMatch: result.visibleMatch,
+                            nameMatch: result.nameMatch,
                             changedItems,
                             missing: result.missing
                         });
@@ -493,7 +609,7 @@
                             <span class="status-pill ${item.overallMatch ? 'running' : 'stopped'}">${statusText}</span>
                         </div>
                         <div class="comparison-item-detail">差異：${changedText}</div>
-                        <div class="comparison-item-detail">造型：${item.costumesMatch ? '相同' : '不同'}，程式：${item.scriptsMatch ? '相同' : '不同'}，變數：${item.variablesMatch ? '相同' : '不同'}</div>
+                        <div class="comparison-item-detail">變數：${item.variablesMatch ? '相同' : '不同'}，清單：${item.listsMatch ? '相同' : '不同'}，程式：${item.blocksMatch ? '相同' : '不同'}，造型：${item.costumesMatch ? '相同' : '不同'}，目前造型：${item.currentCostumeMatch ? '相同' : '不同'}，方向：${item.directionMatch ? '相同' : '不同'}，大小：${item.sizeMatch ? '相同' : '不同'}，顯示：${item.visibleMatch ? '相同' : '不同'}，名稱：${item.nameMatch ? '相同' : '不同'}</div>
                     </li>
                 `;
             }
@@ -520,9 +636,27 @@
                 `;
             }
 
+            let remixComparisonRendered = false;
+
+            function refreshRemixComparisonBlock() {
+                const comparisonContainer = overlayBody?.querySelector('#scratch-arena-remix-comparison');
+                if (!comparisonContainer) return;
+                comparisonContainer.innerHTML = renderRemixComparisonHtml(remixComparison);
+            }
+
             compareProjectToRemixSource()
-                .then(result => { remixComparison = result; remixComparisonStatus = result.status; })
-                .catch(error => { remixComparison = { status: 'unknown', details: [], error: error?.message || '比對失敗' }; });
+                .then(result => {
+                    remixComparison = result;
+                    remixComparisonStatus = result.status;
+                    refreshRemixComparisonBlock();
+                    remixComparisonRendered = true;
+                })
+                .catch(error => {
+                    remixComparison = { status: 'unknown', details: [], error: error?.message || '比對失敗' };
+                    remixComparisonStatus = 'unknown';
+                    refreshRemixComparisonBlock();
+                    remixComparisonRendered = true;
+                });
 
             function getProjectStatus(vmInstance) {
                 return vmInstance.runtime.threads.length > 0 ? 'running' : 'stopped';
@@ -540,7 +674,7 @@
                     y: Math.round(target.y * 100) / 100,
                     direction: target.direction,
                     size: target.size,
-                    variables: Object.values(target.variables || {}).map(v => ({ name: v.name, value: v.value })).sort((a, b) => a.name.localeCompare(b.name))
+                    variables: Object.values(target.variables || {}).map(v => ({ name: v.name, value: v.value })).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
                 };
             }
 
@@ -734,25 +868,57 @@
                     renderConstraintItem('Player 每次移動限制速度 < 10', speedStatus)
                 ].join('');
 
-                overlayBody.innerHTML = `
+                const staticFieldsHtml = `
                     <div class="field"><span class="label">Player X:</span> <span class="value">${playerX}</span></div>
                     <div class="field"><span class="label">Player Y:</span> <span class="value">${playerY}</span></div>
                     <div class="field"><span class="label">Player Speed:</span> <span class="value">${playerSpeed}</span> <span class="warning"> <10 </span> </div>
                     <div class="field"><span class="label">Ending Status costume:</span> <span class="value">${endingCostume}</span></div>
                     <div class="field"><span class="label">Project status:</span> <span class="value"><span class="status-pill ${projectStatus}">${projectStatus}</span></span></div>
-                    <div class="constraint-box">
-                        <div class="constraint-title">專案條件檢查</div>
-                        <ul class="constraint-list">
-                            ${constraintHtml}
-                        </ul>
-                        <div class="comparison-box">
-                            <div class="comparison-title">Remix source 比對結果</div>
-                            <div id="scratch-arena-remix-comparison">
-                                ${renderRemixComparisonHtml(remixComparison)}
+                `;
+
+                const constraintBox = overlayBody.querySelector('.constraint-box');
+                if (!constraintBox) {
+                    overlayBody.innerHTML = `
+                        ${staticFieldsHtml}
+                        <div class="constraint-box">
+                            <div class="constraint-title">專案條件檢查</div>
+                            <ul class="constraint-list">
+                                ${constraintHtml}
+                            </ul>
+                            <div class="comparison-box">
+                                <div class="comparison-title">Remix source 比對結果</div>
+                                <div id="scratch-arena-remix-comparison"></div>
                             </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                } else {
+                    const fieldRows = overlayBody.querySelectorAll('.field');
+                    if (fieldRows.length >= 5) {
+                        const fieldValues = fieldRows[0].querySelector('.value');
+                        const fieldValuesY = fieldRows[1].querySelector('.value');
+                        const fieldValuesSpeed = fieldRows[2].querySelector('.value');
+                        const fieldValuesEnding = fieldRows[3].querySelector('.value');
+                        const projectStatusPill = fieldRows[4].querySelector('.status-pill');
+
+                        if (fieldValues) fieldValues.textContent = String(playerX);
+                        if (fieldValuesY) fieldValuesY.textContent = String(playerY);
+                        if (fieldValuesSpeed) fieldValuesSpeed.textContent = String(playerSpeed);
+                        if (fieldValuesEnding) fieldValuesEnding.textContent = String(endingCostume);
+                        if (projectStatusPill) {
+                            projectStatusPill.className = `status-pill ${projectStatus}`;
+                            projectStatusPill.textContent = projectStatus;
+                        }
+                    }
+
+                    const constraintList = constraintBox.querySelector('.constraint-list');
+                    if (constraintList) {
+                        constraintList.innerHTML = constraintHtml;
+                    }
+                }
+
+                if (remixComparisonRendered && remixComparison) {
+                    refreshRemixComparisonBlock();
+                }
 
                 const sprites = targets.map(target => ({
                     name: target.sprite?.name || (typeof target.getName === 'function' ? target.getName() : 'unknown'),
