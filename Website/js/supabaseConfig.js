@@ -12,8 +12,8 @@
  * schema). NEVER put your service_role key here or in any client code: it
  * bypasses RLS entirely and must stay server-side only.
  */
-const SUPABASE_URL = "PROJECTURL";
-const SUPABASE_ANON_KEY = "KEY";
+const SUPABASE_URL = "https://vhqzsxfvxlqaztnusbwp.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_S2Wl-Yi-QygZQzrKFsbY6A_QutlrfCq";
 
 function saIsSupabaseConfigured() {
   return (
