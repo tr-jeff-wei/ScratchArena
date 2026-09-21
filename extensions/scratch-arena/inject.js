@@ -173,17 +173,25 @@
                         padding-top: 10px;
                         border-top: 1px solid rgba(255,255,255,0.12);
                     }
-                    #${overlayId} .constraint-title {
+                    #${overlayId} .workflow-box {
+                        margin-top: 10px;
+                        padding-top: 10px;
+                        border-top: 1px solid rgba(255,255,255,0.12);
+                    }
+                    #${overlayId} .constraint-title,
+                    #${overlayId} .workflow-title {
                         margin: 0 0 6px;
                         font-size: 11px;
                         color: #c3cbe3;
                     }
-                    #${overlayId} .constraint-list {
+                    #${overlayId} .constraint-list,
+                    #${overlayId} .workflow-list {
                         list-style: none;
                         padding: 0;
                         margin: 0;
                     }
-                    #${overlayId} .constraint-item {
+                    #${overlayId} .constraint-item,
+                    #${overlayId} .workflow-step {
                         display: flex;
                         align-items: flex-start;
                         gap: 8px;
@@ -192,21 +200,59 @@
                         font-size: 11px;
                         line-height: 1.4;
                     }
-                    #${overlayId} .constraint-icon {
+                    #${overlayId} .constraint-icon,
+                    #${overlayId} .workflow-icon {
                         width: 18px;
                         flex-shrink: 0;
                         text-align: center;
                         font-size: 12px;
                         line-height: 1.3;
                     }
-                    #${overlayId} .constraint-item.pass .constraint-icon {
+                    #${overlayId} .constraint-item.pass .constraint-icon,
+                    #${overlayId} .workflow-step.pass .workflow-icon {
                         color: #7cf2a7;
                     }
-                    #${overlayId} .constraint-item.fail .constraint-icon {
+                    #${overlayId} .constraint-item.fail .constraint-icon,
+                    #${overlayId} .workflow-step.fail .workflow-icon {
                         color: #ff8c94;
                     }
-                    #${overlayId} .constraint-item.unknown .constraint-icon {
+                    #${overlayId} .constraint-item.unknown .constraint-icon,
+                    #${overlayId} .workflow-step.unknown .workflow-icon,
+                    #${overlayId} .workflow-step.locked .workflow-icon,
+                    #${overlayId} .workflow-step.active .workflow-icon {
                         color: #f9d56e;
+                    }
+                    #${overlayId} .workflow-step.locked {
+                        opacity: 0.6;
+                    }
+                    #${overlayId} .workflow-step.active {
+                        border-left: 2px solid rgba(124, 242, 167, 0.95);
+                        padding-left: 6px;
+                        background: rgba(124, 242, 167, 0.06);
+                    }
+                    #${overlayId} .workflow-button {
+                        width: 100%;
+                        margin: 6px 0 8px;
+                        padding: 8px 10px;
+                        background: linear-gradient(135deg, rgba(90, 201, 125, 0.22), rgba(90, 201, 125, 0.1));
+                        border: 1px solid rgba(90, 201, 125, 0.4);
+                        border-radius: 10px;
+                        color: #edf7f0;
+                        cursor: pointer;
+                        font-weight: 700;
+                        font-size: 11px;
+                    }
+                    #${overlayId} .workflow-button:hover {
+                        background: linear-gradient(135deg, rgba(90, 201, 125, 0.32), rgba(90, 201, 125, 0.18));
+                    }
+                    #${overlayId} .workflow-button:disabled {
+                        cursor: not-allowed;
+                        opacity: 0.45;
+                    }
+                    #${overlayId} .workflow-sublist {
+                        margin-left: 18px;
+                        padding-left: 0;
+                        list-style: none;
                     }
                     #${overlayId} .comparison-box {
                         margin-top: 14px;
@@ -532,6 +578,62 @@
                 };
             }
 
+            function compareStage(source, current) {
+                if (!source && !current) {
+                    return {
+                        overallMatch: true,
+                        variablesMatch: true,
+                        listsMatch: true,
+                        blocksMatch: true,
+                        costumesMatch: true,
+                        currentCostumeMatch: true,
+                        directionMatch: true,
+                        sizeMatch: true,
+                        visibleMatch: true,
+                        nameMatch: true,
+                        missing: false
+                    };
+                }
+                if (!source || !current) {
+                    return {
+                        overallMatch: false,
+                        variablesMatch: false,
+                        listsMatch: false,
+                        blocksMatch: false,
+                        costumesMatch: false,
+                        currentCostumeMatch: false,
+                        directionMatch: false,
+                        sizeMatch: false,
+                        visibleMatch: false,
+                        nameMatch: false,
+                        missing: true
+                    };
+                }
+
+                const sourceName = normalizeTargetName(source);
+                const currentName = normalizeTargetName(current);
+                const variablesMatch = jsonEqual(normalizeVariables(source.variables), normalizeVariables(current.variables));
+                const listsMatch = jsonEqual(normalizeLists(source.lists), normalizeLists(current.lists));
+                const blocksMatch = jsonEqual(normalizeBlocks(source.blocks), normalizeBlocks(current.blocks));
+                const costumesMatch = jsonEqual(normalizeCostumes(source.costumes), normalizeCostumes(current.costumes));
+                const currentCostumeMatch = jsonEqual(normalizeCurrentCostume(source.currentCostume), normalizeCurrentCostume(current.currentCostume));                
+                const nameMatch = sourceName === currentName;
+
+                return {
+                    overallMatch: variablesMatch && listsMatch && blocksMatch && costumesMatch && currentCostumeMatch &&  nameMatch,
+                    variablesMatch,
+                    listsMatch,
+                    blocksMatch,
+                    costumesMatch,
+                    currentCostumeMatch,
+                    directionMatch:true,
+                    sizeMatch:true,
+                    visibleMatch:true,
+                    nameMatch,
+                    missing: false
+                };
+            }            
+
             async function compareProjectToRemixSource() {
                 const projectId = getProjectIdFromUrl();
                 if (!projectId) {
@@ -558,7 +660,12 @@
                     Array.from(relevantNames).sort().forEach(name => {
                         const sourceTarget = sourceMap.get(name);
                         const currentTarget = currentMap.get(name);
-                        const result = compareSprite(sourceTarget, currentTarget);
+                        let result ;
+                        if( sourceTarget.isStage && currentTarget.isStage){
+                            result = compareStage(sourceTarget, currentTarget);
+                        }else{
+                            result = compareSprite(sourceTarget, currentTarget);
+                        }
                         const changedItems = [];
 
                         if (result.missing) {
@@ -591,6 +698,9 @@
                             missing: result.missing
                         });
                     });
+
+                    console.log('===================================');
+                    console.log('remix comparison details => ', details);
 
                     const status = details.length === 0 ? 'unknown' : details.every(item => item.overallMatch) ? 'pass' : 'fail';
                     return { status, details };
@@ -809,8 +919,183 @@
                 `;
             }
 
+            const workflowState = {
+                evaluationStarted: false,
+                greenFlagStarted: false,
+                mouseLeftFlag: false,
+                keyboardInputDetected: false,
+                executionFinished: false,
+                successDetected: false,
+                uploadReported: false
+            };
+
+            function findGreenFlagButton() {
+                const selectors = [
+                    'button[aria-label="Green Flag"]',
+                    'button[aria-label="綠旗"]',
+                    'button[title*="Green Flag"]',
+                    'button[title*="綠旗"]',
+                    '[data-testid="green-flag"]',
+                    '[data-test="green-flag"]',
+                    '.green-flag',
+                    '.stage_green-flag'
+                ];
+                for (const selector of selectors) {
+                    const el = document.querySelector(selector);
+                    if (el) return el;
+                }
+                return null;
+            }
+
+            function getWorkflowStatusLabel(status) {
+                if (status === 'pass') return '完成';
+                if (status === 'fail') return '失敗';
+                if (status === 'active') return '進行中';
+                if (status === 'locked') return '待啟動';
+                return '待檢核';
+            }
+
+            function renderWorkflowSubStep(stepText, status, subText = '') {
+                const icon = status === 'pass' ? '✓' : status === 'fail' ? '✕' : status === 'active' ? '→' : '·';
+                return `
+                    <li class="workflow-step ${status}">
+                        <span class="workflow-icon">${icon}</span>
+                        <span>
+                            ${stepText}${subText ? `<br><small>${subText}</small>` : ''}
+                        </span>
+                    </li>
+                `;
+            }
+
+            function renderWorkflowFlow(overallState, shareStatus, scoreStatus, nonPlayerStatus, broadcastStatus, speedStatus) {
+                const stage1Ready = workflowState.evaluationStarted;
+                const stage1Pass = stage1Ready && shareStatus === 'pass' && scoreStatus === 'pass' && nonPlayerStatus === 'pass' && broadcastStatus === 'pass';
+                const stage2Ready = stage1Pass && workflowState.greenFlagStarted;
+                const stage2Pass = stage2Ready && !workflowState.mouseLeftFlag && !workflowState.keyboardInputDetected && speedStatus !== 'fail';
+                const stage3Ready = stage2Pass && workflowState.successDetected;
+
+                const workflow = [
+                    {
+                        label: '1. 啟動評估',
+                        status: workflowState.evaluationStarted ? (stage1Pass ? 'pass' : 'active') : 'locked',
+                        children: [
+                            {
+                                label: '1.1 非更動項目檢核',
+                                status: shareStatus === 'pass' && nonPlayerStatus === 'pass' ? 'pass' : shareStatus === 'fail' || nonPlayerStatus === 'fail' ? 'fail' : stage1Ready ? 'active' : 'locked',
+                                sub: '背景與非 Player 角色需與 remix 原始來源一致'
+                            },
+                            {
+                                label: '1.2 Player 程式合規檢核',
+                                status: scoreStatus === 'pass' && broadcastStatus === 'pass' ? 'pass' : scoreStatus === 'fail' || broadcastStatus === 'fail' ? 'fail' : stage1Ready ? 'active' : 'locked',
+                                sub: '不可修改 Score，且不能使用非 Player 角色廣播事件'
+                            }
+                        ]
+                    },
+                    {
+                        label: '2. 開始執行',
+                        status: workflowState.greenFlagStarted ? (stage2Pass ? 'pass' : 'active') : stage1Pass ? 'active' : 'locked',
+                        children: [
+                            {
+                                label: '2.1 點擊綠色旗幟開始',
+                                status: workflowState.greenFlagStarted ? 'pass' : stage1Pass ? 'active' : 'locked',
+                                sub: '點擊綠旗後才可進入執行檢核'
+                            },
+                            {
+                                label: '2.2 滑鼠不可離開旗幟',
+                                status: workflowState.mouseLeftFlag ? 'fail' : workflowState.greenFlagStarted ? 'active' : 'locked',
+                                sub: '執行結果前離開旗幟即判定失敗'
+                            },
+                            {
+                                label: '2.3 鍵盤不可有輸入',
+                                status: workflowState.keyboardInputDetected ? 'fail' : workflowState.greenFlagStarted ? 'active' : 'locked',
+                                sub: '執行前不可輸入任何鍵盤訊號'
+                            },
+                            {
+                                label: '2.4 Player 每次移動速度 < 10',
+                                status: speedStatus === 'pass' ? 'pass' : speedStatus === 'fail' ? 'fail' : workflowState.greenFlagStarted ? 'active' : 'locked',
+                                sub: '超過速度上限將直接失敗'
+                            }
+                        ]
+                    },
+                    {
+                        label: '3. 執行結束',
+                        status: workflowState.successDetected ? (workflowState.uploadReported ? 'pass' : 'active') : stage2Pass ? 'active' : 'locked',
+                        children: [
+                            {
+                                label: '3.1 挑戰成功判定',
+                                status: workflowState.successDetected ? 'pass' : stage2Pass ? 'active' : 'locked',
+                                sub: '判斷成功角色 / 背景已出現'
+                            },
+                            {
+                                label: '3.2 上傳伺服器回報成果',
+                                status: workflowState.uploadReported ? 'pass' : workflowState.successDetected ? 'active' : 'locked',
+                                sub: '檢核通過後回報服務器'
+                            }
+                        ]
+                    }
+                ];
+
+                const isReady = workflowState.evaluationStarted && stage1Pass && workflowState.greenFlagStarted && stage2Pass;
+
+                return `
+                    <div class="workflow-button-wrap">
+                        <button id="scratch-arena-start-evaluation" class="workflow-button" ${workflowState.evaluationStarted ? 'disabled' : ''}>
+                            ${workflowState.evaluationStarted ? '已啟動評估' : '啟動評估'}
+                        </button>
+                    </div>
+                    <ul class="workflow-list">
+                        ${workflow.map(group => `
+                            <li class="workflow-step ${group.status}">
+                                <span class="workflow-icon">${group.status === 'pass' ? '✓' : group.status === 'fail' ? '✕' : group.status === 'active' ? '→' : '·'}</span>
+                                <span>
+                                    <strong>${group.label}</strong>
+                                    <ul class="workflow-sublist">
+                                        ${group.children.map(child => renderWorkflowSubStep(child.label, child.status, child.sub)).join('')}
+                                    </ul>
+                                </span>
+                            </li>
+                        `).join('')}
+                    </ul>
+                `;
+            }
+
+            function registerFlowEventListeners() {
+                document.addEventListener('click', (event) => {
+                    if (!workflowState.evaluationStarted && event.target.closest('#scratch-arena-start-evaluation')) {
+                        workflowState.evaluationStarted = true;
+                        return;
+                    }
+                    const flagButton = findGreenFlagButton();
+                    if (!flagButton || workflowState.greenFlagStarted || !workflowState.evaluationStarted) return;
+                    if (event.target === flagButton || flagButton.contains(event.target)) {
+                        workflowState.greenFlagStarted = true;
+                    }
+                });
+
+                document.addEventListener('keydown', (event) => {
+                    if (workflowState.greenFlagStarted && !workflowState.executionFinished && !event.repeat) {
+                        const targetKey = event.key ? event.key.toLowerCase() : '';
+                        if (!['meta', 'control', 'alt', 'shift'].includes(targetKey) && !event.ctrlKey && !event.altKey && !event.metaKey) {
+                            workflowState.keyboardInputDetected = true;
+                        }
+                    }
+                });
+
+                document.addEventListener('pointermove', (event) => {
+                    if (!workflowState.greenFlagStarted || workflowState.executionFinished) return;
+                    const flagButton = findGreenFlagButton();
+                    if (!flagButton) return;
+                    const rect = flagButton.getBoundingClientRect();
+                    const isInside = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+                    if (!isInside) {
+                        workflowState.mouseLeftFlag = true;
+                    }
+                });
+            }
+
             const overlay = ensureOverlay();
             const overlayBody = overlay.querySelector('#scratch-arena-info-body');
+            registerFlowEventListeners();
 
             setInterval(() => {
                 const targets = vm.runtime?.targets || [];
@@ -868,6 +1153,15 @@
                     renderConstraintItem('Player 每次移動限制速度 < 10', speedStatus)
                 ].join('');
 
+                const workflowHtml = renderWorkflowFlow(
+                    { evaluationStarted: workflowState.evaluationStarted, greenFlagStarted: workflowState.greenFlagStarted },
+                    shareStatus,
+                    scoreStatus,
+                    nonPlayerStatus,
+                    broadcastStatus,
+                    speedStatus
+                );
+
                 const staticFieldsHtml = `
                     <div class="field"><span class="label">Player X:</span> <span class="value">${playerX}</span></div>
                     <div class="field"><span class="label">Player Y:</span> <span class="value">${playerY}</span></div>
@@ -880,6 +1174,10 @@
                 if (!constraintBox) {
                     overlayBody.innerHTML = `
                         ${staticFieldsHtml}
+                        <div class="workflow-box">
+                            <div class="workflow-title">評估流程</div>
+                            ${workflowHtml}
+                        </div>
                         <div class="constraint-box">
                             <div class="constraint-title">專案條件檢查</div>
                             <ul class="constraint-list">
@@ -914,6 +1212,21 @@
                     if (constraintList) {
                         constraintList.innerHTML = constraintHtml;
                     }
+
+                    const workflowBox = overlayBody.querySelector('.workflow-box');
+                    if (workflowBox) {
+                        workflowBox.innerHTML = `
+                            <div class="workflow-title">評估流程</div>
+                            ${workflowHtml}
+                        `;
+                    }
+                }
+
+                const startButton = overlayBody.querySelector('#scratch-arena-start-evaluation');
+                if (startButton && !workflowState.evaluationStarted) {
+                    startButton.addEventListener('click', () => {
+                        workflowState.evaluationStarted = true;
+                    }, { once: true });
                 }
 
                 if (remixComparisonRendered && remixComparison) {
