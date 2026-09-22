@@ -38,7 +38,7 @@
             }
         }
 
-        console.log("vm => ", vm);
+        // console.log("vm => ", vm);
         if (vm) {
             window.vm = vm;
             console.log("✅ 成功獲取 Scratch VM！現在您可以使用 window.vm 來查詢角色了。");
@@ -369,8 +369,7 @@
                 }
                 return target.currentCostume?.name || target.costume?.name || 'N/A';
             }
-
-            let initialScoreState = null;
+            
             let remixComparison = null;
             let remixComparisonStatus = 'unknown';
 
@@ -430,6 +429,18 @@
                 return target.name || target.sprite?.name || (typeof target.getName === 'function' ? target.getName() : 'unknown');
             }
 
+            async function waitForRuntimeTargets(vmInstance, timeoutMs = 10000) {
+                const deadline = Date.now() + timeoutMs;
+                while (Date.now() < deadline) {
+                    const targets = vmInstance?.runtime?.targets;
+                    if (Array.isArray(targets) && targets.length > 0) {
+                        return targets;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                return vmInstance?.runtime?.targets || [];
+            }
+
             function normalizeForComparison(value) {
                 if (Array.isArray(value)) {
                     return value.map(item => normalizeForComparison(item));
@@ -478,6 +489,7 @@
             }
 
             function normalizeBlockChain(blocksMap, startBlockId) {
+                console.log('normalizeBlockChain => ', blocksMap, startBlockId);
                 const script = [];
                 let currentId = startBlockId;
                 while (currentId) {
@@ -485,7 +497,8 @@
                     if (!block) break;
                     script.push({
                         opcode: block.opcode,
-                        inputs: normalizeForComparison(block.inputs || {})
+                        inputs: normalizeForComparison(block.inputs || {}),
+                        fields: normalizeForComparison(block.fields || {})
                     });
                     currentId = block.next || null;
                 }
@@ -494,10 +507,17 @@
 
             function normalizeBlocks(blocks) {
                 const rawBlocks = blocks?._blocks || blocks || {};
-                const allBlocks = Array.isArray(rawBlocks) ? rawBlocks : Object.values(rawBlocks);
+                // console.log('rawBlocks => ', rawBlocks);
+                const allBlocks = Array.isArray(rawBlocks)
+                    ? rawBlocks
+                    : Object.entries(rawBlocks).map(([id, block]) => ({ id, ...block }));
+                // console.log('allBlocks => ', allBlocks);
                 const blocksMap = new Map(allBlocks.filter(block => block && typeof block.id === 'string').map(block => [block.id, block]));
+                // console.log('blocksMap => ', blocksMap);
                 const topLevelBlocks = allBlocks.filter(block => block && typeof block.id === 'string' && block.topLevel === true);
+                // console.log('topLevelBlocks => ', topLevelBlocks);
                 const scriptChains = topLevelBlocks.map(block => normalizeBlockChain(blocksMap, block.id));
+                console.log('normalizeBlocks => ', scriptChains);
                 return scriptChains;
             }
 
@@ -516,6 +536,7 @@
             }
 
             function jsonEqual(a, b) {
+                console.log('jsonEqual => ', a, b);
                 return JSON.stringify(normalizeForComparison(a)) === JSON.stringify(normalizeForComparison(b));
             }
 
@@ -553,14 +574,23 @@
 
                 const sourceName = normalizeTargetName(source);
                 const currentName = normalizeTargetName(current);
+                console.log('jsonEqual-sprite=>  variablesMatch => ', source.variables, current.variables);
                 const variablesMatch = jsonEqual(normalizeVariables(source.variables), normalizeVariables(current.variables));
+                console.log('jsonEqual-sprite=>  listsMatch => ', source.lists, current.lists);
                 const listsMatch = jsonEqual(normalizeLists(source.lists), normalizeLists(current.lists));
+                console.log('jsonEqual-sprite=>  blocksMatch => ', source.blocks, current.blocks);
                 const blocksMatch = jsonEqual(normalizeBlocks(source.blocks), normalizeBlocks(current.blocks));
+                console.log('jsonEqual-sprite=>  costumesMatch => ', source.costumes, current.costumes);
                 const costumesMatch = jsonEqual(normalizeCostumes(source.costumes), normalizeCostumes(current.costumes));
+                console.log('jsonEqual-sprite=>  currentCostumeMatch => ', source.currentCostume, current.currentCostume);
                 const currentCostumeMatch = jsonEqual(normalizeCurrentCostume(source.currentCostume), normalizeCurrentCostume(current.currentCostume));
+                console.log('jsonEqual-sprite=>  directionMatch => ', source.direction, current.direction);
                 const directionMatch = Number(source.direction) === Number(current.direction);
+                console.log('jsonEqual-sprite=>  sizeMatch => ', source.size, current.size);
                 const sizeMatch = Number(source.size) === Number(current.size);
+                console.log('jsonEqual-sprite=>  visibleMatch => ', source.visible, current.visible);
                 const visibleMatch = source.visible === current.visible;
+                console.log('jsonEqual-sprite=>  nameMatch => ', sourceName, currentName);
                 const nameMatch = sourceName === currentName;
 
                 return {
@@ -612,11 +642,17 @@
 
                 const sourceName = normalizeTargetName(source);
                 const currentName = normalizeTargetName(current);
+                console.log('jsonEqual-stage=>  variablesMatch => ', source.variables, current.variables);
                 const variablesMatch = jsonEqual(normalizeVariables(source.variables), normalizeVariables(current.variables));
+                console.log('jsonEqual-stage=>  listsMatch => ', source.lists, current.lists);
                 const listsMatch = jsonEqual(normalizeLists(source.lists), normalizeLists(current.lists));
+                console.log('jsonEqual-stage=>  blocksMatch => ', source.blocks, current.blocks);
                 const blocksMatch = jsonEqual(normalizeBlocks(source.blocks), normalizeBlocks(current.blocks));
+                console.log('jsonEqual-stage=>  costumesMatch => ', source.costumes, current.costumes);
                 const costumesMatch = jsonEqual(normalizeCostumes(source.costumes), normalizeCostumes(current.costumes));
-                const currentCostumeMatch = jsonEqual(normalizeCurrentCostume(source.currentCostume), normalizeCurrentCostume(current.currentCostume));                
+                console.log('jsonEqual-stage=>  currentCostumeMatch => ', source.currentCostume, current.currentCostume);
+                const currentCostumeMatch = jsonEqual(normalizeCurrentCostume(source.currentCostume), normalizeCurrentCostume(current.currentCostume));
+                console.log('jsonEqual-stage=>  nameMatch => ', sourceName, currentName);
                 const nameMatch = sourceName === currentName;
 
                 return {
@@ -650,16 +686,25 @@
                     const currentJson = await loadProjectJson(projectId, currentProjectToken);
                     const remixSourceToken = await getProjectToken(remixSourceId);
                     const sourceJson = await loadProjectJson(remixSourceId, remixSourceToken);
-                    const currentTargets = currentJson?.targets || [];
+                    const currentTargets = currentJson?.targets || [];                    
                     const sourceTargets = sourceJson?.targets || [];
                     const sourceMap = new Map(sourceTargets.map(t => [normalizeTargetName(t), t]));
                     const currentMap = new Map(currentTargets.map(t => [normalizeTargetName(t), t]));
-                    const relevantNames = new Set([...sourceMap.keys(), ...currentMap.keys()].filter(name => name && name !== 'Player'));
+                    const relevantNames = new Set([...sourceMap.keys(), ...currentMap.keys()].filter(name => name && name !== 'Player'));                    
                     const details = [];
+                    console.log('===================================');
+                    console.log('sourceTargets => ', sourceTargets);
+                    console.log('===================================');
+                    console.log('sourceMap => ', sourceMap);
+                    console.log('currentMap => ', currentMap);
+                    console.log('relevantNames => ', relevantNames);
+                    console.log('===================================');
 
                     Array.from(relevantNames).sort().forEach(name => {
                         const sourceTarget = sourceMap.get(name);
                         const currentTarget = currentMap.get(name);
+                        console.log( sourceTarget, currentTarget);
+                        console.log('===================================>',name, sourceTarget, currentTarget);
                         let result ;
                         if( sourceTarget.isStage && currentTarget.isStage){
                             result = compareStage(sourceTarget, currentTarget);
@@ -754,19 +799,23 @@
                 comparisonContainer.innerHTML = renderRemixComparisonHtml(remixComparison);
             }
 
-            compareProjectToRemixSource()
-                .then(result => {
-                    remixComparison = result;
-                    remixComparisonStatus = result.status;
-                    refreshRemixComparisonBlock();
-                    remixComparisonRendered = true;
-                })
-                .catch(error => {
-                    remixComparison = { status: 'unknown', details: [], error: error?.message || '比對失敗' };
-                    remixComparisonStatus = 'unknown';
-                    refreshRemixComparisonBlock();
-                    remixComparisonRendered = true;
-                });
+            function startRemixComparison() {
+                compareProjectToRemixSource()
+                    .then(result => {
+                        remixComparison = result;
+                        remixComparisonStatus = result.status;
+                        refreshRemixComparisonBlock();
+                        remixComparisonRendered = true;
+                        refreshOverlay();
+                    })
+                    .catch(error => {
+                        remixComparison = { status: 'unknown', details: [], error: error?.message || '比對失敗' };
+                        remixComparisonStatus = 'unknown';
+                        refreshRemixComparisonBlock();
+                        remixComparisonRendered = true;
+                        refreshOverlay();
+                    });
+            }
 
             function getProjectStatus(vmInstance) {
                 return vmInstance.runtime.threads.length > 0 ? 'running' : 'stopped';
@@ -817,6 +866,28 @@
                     }
                 });
                 return [...names];
+            }
+
+            function isStage1Passed() {
+                if (!workflowState.evaluationStarted || remixComparisonStatus !== 'pass') return false;
+                if (getProjectShareStatus() !== 'pass') return false;
+
+                const targets = vm.runtime?.targets || [];
+                if (checkModifyScoreVar(targets)) return false;
+
+                const player = targets.find(target => {
+                    const name = target.sprite?.name || (typeof target.getName === 'function' ? target.getName() : undefined);
+                    return name === 'Player';
+                });
+                const nonPlayerTargets = targets.filter(target => {
+                    const name = target.sprite?.name || (typeof target.getName === 'function' ? target.getName() : undefined);
+                    return name !== 'Player';
+                });
+                const nonPlayerBroadcasts = new Set(getBroadcastNames({
+                    blocks: nonPlayerTargets.flatMap(target => Object.values(target.blocks?._blocks || target.blocks || {}))
+                }));
+                const playerBroadcasts = getBroadcastNames(player);
+                return !playerBroadcasts.some(name => nonPlayerBroadcasts.has(name));
             }
 
             function getShareButton() {
@@ -1061,14 +1132,20 @@
 
             function registerFlowEventListeners() {
                 document.addEventListener('click', (event) => {
-                    if (!workflowState.evaluationStarted && event.target.closest('#scratch-arena-start-evaluation')) {
-                        workflowState.evaluationStarted = true;
+                    const clickedElement = event.target instanceof Element ? event.target : null;
+                    if (!workflowState.evaluationStarted && clickedElement?.closest('#scratch-arena-start-evaluation')) {
+                        startEvaluation();
                         return;
                     }
                     const flagButton = findGreenFlagButton();
                     if (!flagButton || workflowState.greenFlagStarted || !workflowState.evaluationStarted) return;
+                    if (!isStage1Passed()) return;
                     if (event.target === flagButton || flagButton.contains(event.target)) {
                         workflowState.greenFlagStarted = true;
+                        playerPreX = null;
+                        playerPreY = null;
+                        startExecutionMonitoring();
+                        refreshOverlay();
                     }
                 });
 
@@ -1095,9 +1172,23 @@
 
             const overlay = ensureOverlay();
             const overlayBody = overlay.querySelector('#scratch-arena-info-body');
+            let executionTimer = null;
+
+            function startExecutionMonitoring() {
+                if (executionTimer !== null) return;
+                executionTimer = setInterval(refreshOverlay, 100);
+            }
+
+            function startEvaluation() {
+                if (workflowState.evaluationStarted) return;
+                workflowState.evaluationStarted = true;
+                startRemixComparison();
+                refreshOverlay();
+            }
+
             registerFlowEventListeners();
 
-            setInterval(() => {
+            function refreshOverlay() {
                 const targets = vm.runtime?.targets || [];
                 const player = targets.find(t => {
                     const name = t.sprite?.name || (typeof t.getName === 'function' ? t.getName() : undefined);
@@ -1109,37 +1200,44 @@
                 });
                 const projectStatus = getProjectStatus(vm);
 
-                const playerX = player ? Math.round(player.x * 100) / 100 : '未找到';
-                const playerY = player ? Math.round(player.y * 100) / 100 : '未找到';
+                const isExecutionMonitoring = workflowState.greenFlagStarted;
+                const playerX = isExecutionMonitoring && player ? Math.round(player.x * 100) / 100 : '等待開始執行';
+                const playerY = isExecutionMonitoring && player ? Math.round(player.y * 100) / 100 : '等待開始執行';
                 let playerVelocity = 0;
-                if ( playerPreX && playerPreY ) {
+                if (isExecutionMonitoring && player && playerPreX !== null && playerPreY !== null) {
                     playerVelocity = Math.floor(
                         Math.sqrt((playerX - playerPreX)*(playerX - playerPreX) + (playerY - playerPreY)*(playerY - playerPreY)));
                 }
-                playerPreX = playerX;
-                playerPreY = playerY;                
+                if (isExecutionMonitoring && player) {
+                    playerPreX = playerX;
+                    playerPreY = playerY;
+                }
                 // 速度計算需考量 fps
-                const playerSpeed = player ? Math.round(playerVelocity * 100) / 300 : '未找到';
-                const endingCostume = getCostumeName(ending);
+                const playerSpeed = isExecutionMonitoring && player ? Math.round(playerVelocity * 100) / 300 : '等待開始執行';
+                const endingCostume = isExecutionMonitoring ? getCostumeName(ending) : '等待開始執行';
 
                 const nonPlayerTargets = targets.filter(t => {
                     const name = t.sprite?.name || (typeof t.getName === 'function' ? t.getName() : undefined);
                     return name !== 'Player';
                 });
 
-                const scoreStatus = checkModifyScoreVar(targets) ? 'fail' : 'pass';
-                const shareStatus = getProjectShareStatus();
+                const scoreStatus = workflowState.evaluationStarted
+                    ? (checkModifyScoreVar(targets) ? 'fail' : 'pass')
+                    : 'unknown';
+                const shareStatus = workflowState.evaluationStarted ? getProjectShareStatus() : 'unknown';
                 const nonPlayerStatus = remixComparisonStatus === 'pass' ? 'pass' : remixComparisonStatus === 'fail' ? 'fail' : 'unknown';
 
                 const nonPlayerBroadcasts = new Set(getBroadcastNames({ blocks: nonPlayerTargets.flatMap(t => Object.values(t.blocks?._blocks || t.blocks || {})) }));
                 const playerBroadcasts = getBroadcastNames(player);
-                const broadcastStatus = playerBroadcasts.length === 0
-                    ? 'pass'
-                    : playerBroadcasts.some(name => nonPlayerBroadcasts.has(name))
-                        ? 'fail'
-                        : 'pass';
+                const broadcastStatus = !workflowState.evaluationStarted
+                    ? 'unknown'
+                    : playerBroadcasts.length === 0
+                        ? 'pass'
+                        : playerBroadcasts.some(name => nonPlayerBroadcasts.has(name))
+                            ? 'fail'
+                            : 'pass';
 
-                const speedStatus = playerSpeed === '未找到'
+                const speedStatus = !isExecutionMonitoring || playerSpeed === '未找到' || playerSpeed === '等待開始執行'
                     ? 'unknown'
                     : playerSpeed < 10
                         ? 'pass'
@@ -1224,9 +1322,7 @@
 
                 const startButton = overlayBody.querySelector('#scratch-arena-start-evaluation');
                 if (startButton && !workflowState.evaluationStarted) {
-                    startButton.addEventListener('click', () => {
-                        workflowState.evaluationStarted = true;
-                    }, { once: true });
+                    startButton.addEventListener('click', startEvaluation, { once: true });
                 }
 
                 if (remixComparisonRendered && remixComparison) {
@@ -1248,7 +1344,9 @@
                     type: "SCRATCH_INFO",
                     sprites
                 }, "*");
-            }, 100);
+            }
+
+            refreshOverlay();
 
         } else if (Date.now() - startedAt < MAX_WAIT_MS) {
             attempts += 1;
