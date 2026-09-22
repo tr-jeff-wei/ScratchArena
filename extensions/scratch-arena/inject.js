@@ -468,25 +468,29 @@
                 const entries = Array.isArray(variables) ? variables : Object.values(variables || {});
                 return entries.map(v => {
                     if (Array.isArray(v)) {
-                        const name = typeof v[1] === 'string' ? v[1] : (typeof v[0] === 'string' ? v[0] : '');
-                        const value = v[2] !== undefined ? v[2] : (v[1] !== undefined ? v[1] : null);
+                        const name = (typeof v[0] === 'string' ? v[0] : '');
+                        const value = (v[1] !== undefined ? v[1] : null);
                         return { name, value: normalizeForComparison(value) };
                     }
                     return { name: v?.name || '', value: normalizeForComparison(typeof v?.value !== 'undefined' ? v.value : null) };
                 }).filter(item => item.name || item.value !== null).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
             }
 
-            function normalizeLists(lists) {
-                const entries = Array.isArray(lists) ? lists : Object.values(lists || {});
-                return entries.map(v => {
-                    if (Array.isArray(v)) {
-                        const name = typeof v[1] === 'string' ? v[1] : (typeof v[0] === 'string' ? v[0] : '');
-                        const value = Array.isArray(v[2]) ? normalizeForComparison(v[2]) : normalizeForComparison(v[1] ?? []);
-                        return { name, value };
-                    }
-                    return { name: v?.name || '', value: normalizeForComparison(v?.contents ?? v?.value ?? []) };
-                }).filter(item => item.name || (Array.isArray(item.value) && item.value.length > 0)).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+
+            // 只檢查 source 的每個 variable name 是否存在於 current
+            // 不比較 variable value
+            // current 可以有額外的 variable name
+            // sprite 與 stage 都套用相同邏輯
+            function variableNamesMatch(sourceVariables, currentVariables) {
+                const sourceNames = new Set(normalizeVariables(sourceVariables).map(variable => variable.name));
+                console.log('variableNamesMatch => sourceVariables:', sourceVariables);
+                console.log('variableNamesMatch => sourceNames:', sourceNames);
+                const currentNames = new Set(normalizeVariables(currentVariables).map(variable => variable.name));
+                console.log('variableNamesMatch => currentVariables:', currentVariables);
+                console.log('variableNamesMatch => currentNames:', currentNames);
+                return [...sourceNames].every(name => currentNames.has(name));
             }
+
 
             function normalizeBlockChain(blocksMap, startBlockId) {
                 console.log('normalizeBlockChain => ', blocksMap, startBlockId);
@@ -521,22 +525,10 @@
                 return scriptChains;
             }
 
-            function normalizeCurrentCostume(currentCostume) {
-                if (typeof currentCostume === 'number') {
-                    return { index: currentCostume };
-                }
-                if (currentCostume && typeof currentCostume === 'object') {
-                    return {
-                        name: currentCostume.name || '',
-                        index: typeof currentCostume.index === 'number' ? currentCostume.index : null,
-                        assetId: currentCostume.assetId || currentCostume.md5ext || currentCostume.md5 || ''
-                    };
-                }
-                return currentCostume;
-            }
 
             function jsonEqual(a, b) {
-                console.log('jsonEqual => ', a, b);
+                console.log('jsonEqual => A:', a);
+                console.log('jsonEqual => B:', b);
                 return JSON.stringify(normalizeForComparison(a)) === JSON.stringify(normalizeForComparison(b));
             }
 
@@ -547,12 +539,7 @@
                         variablesMatch: true,
                         listsMatch: true,
                         blocksMatch: true,
-                        costumesMatch: true,
-                        currentCostumeMatch: true,
-                        directionMatch: true,
-                        sizeMatch: true,
-                        visibleMatch: true,
-                        nameMatch: true,
+                        costumesMatch: true,               
                         missing: false
                     };
                 }
@@ -562,113 +549,40 @@
                         variablesMatch: false,
                         listsMatch: false,
                         blocksMatch: false,
-                        costumesMatch: false,
-                        currentCostumeMatch: false,
-                        directionMatch: false,
-                        sizeMatch: false,
-                        visibleMatch: false,
-                        nameMatch: false,
+                        costumesMatch: false,                       
                         missing: true
                     };
                 }
 
-                const sourceName = normalizeTargetName(source);
-                const currentName = normalizeTargetName(current);
-                console.log('jsonEqual-sprite=>  variablesMatch => ', source.variables, current.variables);
-                const variablesMatch = jsonEqual(normalizeVariables(source.variables), normalizeVariables(current.variables));
-                console.log('jsonEqual-sprite=>  listsMatch => ', source.lists, current.lists);
-                const listsMatch = jsonEqual(normalizeLists(source.lists), normalizeLists(current.lists));
-                console.log('jsonEqual-sprite=>  blocksMatch => ', source.blocks, current.blocks);
+                const variablesMatch = variableNamesMatch(source.variables, current.variables);
+                console.log('sprite=>  variablesMatch => ', variablesMatch);
+                console.log(source.variables);
+                console.log(current.variables);
+                const listsMatch = variableNamesMatch(source.lists,current.lists);
+                console.log('sprite=>  listsMatch => ', listsMatch);
+                console.log(source.lists);
+                console.log(current.lists);
                 const blocksMatch = jsonEqual(normalizeBlocks(source.blocks), normalizeBlocks(current.blocks));
-                console.log('jsonEqual-sprite=>  costumesMatch => ', source.costumes, current.costumes);
+                console.log('sprite=>  blocksMatch => ', blocksMatch);
+                console.log(source.blocks);
+                console.log(current.blocks);
                 const costumesMatch = jsonEqual(normalizeCostumes(source.costumes), normalizeCostumes(current.costumes));
-                console.log('jsonEqual-sprite=>  currentCostumeMatch => ', source.currentCostume, current.currentCostume);
-                const currentCostumeMatch = jsonEqual(normalizeCurrentCostume(source.currentCostume), normalizeCurrentCostume(current.currentCostume));
-                console.log('jsonEqual-sprite=>  directionMatch => ', source.direction, current.direction);
-                const directionMatch = Number(source.direction) === Number(current.direction);
-                console.log('jsonEqual-sprite=>  sizeMatch => ', source.size, current.size);
-                const sizeMatch = Number(source.size) === Number(current.size);
-                console.log('jsonEqual-sprite=>  visibleMatch => ', source.visible, current.visible);
-                const visibleMatch = source.visible === current.visible;
-                console.log('jsonEqual-sprite=>  nameMatch => ', sourceName, currentName);
-                const nameMatch = sourceName === currentName;
+                console.log('sprite=>  costumesMatch => ', costumesMatch);
+                console.log(source.costumes);
+                console.log(current.costumes);
+               
 
                 return {
-                    overallMatch: variablesMatch && listsMatch && blocksMatch && costumesMatch && currentCostumeMatch && directionMatch && sizeMatch && visibleMatch && nameMatch,
+                    overallMatch: variablesMatch && listsMatch && blocksMatch && costumesMatch ,
                     variablesMatch,
                     listsMatch,
                     blocksMatch,
-                    costumesMatch,
-                    currentCostumeMatch,
-                    directionMatch,
-                    sizeMatch,
-                    visibleMatch,
-                    nameMatch,
+                    costumesMatch,      
                     missing: false
                 };
             }
 
-            function compareStage(source, current) {
-                if (!source && !current) {
-                    return {
-                        overallMatch: true,
-                        variablesMatch: true,
-                        listsMatch: true,
-                        blocksMatch: true,
-                        costumesMatch: true,
-                        currentCostumeMatch: true,
-                        directionMatch: true,
-                        sizeMatch: true,
-                        visibleMatch: true,
-                        nameMatch: true,
-                        missing: false
-                    };
-                }
-                if (!source || !current) {
-                    return {
-                        overallMatch: false,
-                        variablesMatch: false,
-                        listsMatch: false,
-                        blocksMatch: false,
-                        costumesMatch: false,
-                        currentCostumeMatch: false,
-                        directionMatch: false,
-                        sizeMatch: false,
-                        visibleMatch: false,
-                        nameMatch: false,
-                        missing: true
-                    };
-                }
-
-                const sourceName = normalizeTargetName(source);
-                const currentName = normalizeTargetName(current);
-                console.log('jsonEqual-stage=>  variablesMatch => ', source.variables, current.variables);
-                const variablesMatch = jsonEqual(normalizeVariables(source.variables), normalizeVariables(current.variables));
-                console.log('jsonEqual-stage=>  listsMatch => ', source.lists, current.lists);
-                const listsMatch = jsonEqual(normalizeLists(source.lists), normalizeLists(current.lists));
-                console.log('jsonEqual-stage=>  blocksMatch => ', source.blocks, current.blocks);
-                const blocksMatch = jsonEqual(normalizeBlocks(source.blocks), normalizeBlocks(current.blocks));
-                console.log('jsonEqual-stage=>  costumesMatch => ', source.costumes, current.costumes);
-                const costumesMatch = jsonEqual(normalizeCostumes(source.costumes), normalizeCostumes(current.costumes));
-                console.log('jsonEqual-stage=>  currentCostumeMatch => ', source.currentCostume, current.currentCostume);
-                const currentCostumeMatch = jsonEqual(normalizeCurrentCostume(source.currentCostume), normalizeCurrentCostume(current.currentCostume));
-                console.log('jsonEqual-stage=>  nameMatch => ', sourceName, currentName);
-                const nameMatch = sourceName === currentName;
-
-                return {
-                    overallMatch: variablesMatch && listsMatch && blocksMatch && costumesMatch && currentCostumeMatch &&  nameMatch,
-                    variablesMatch,
-                    listsMatch,
-                    blocksMatch,
-                    costumesMatch,
-                    currentCostumeMatch,
-                    directionMatch:true,
-                    sizeMatch:true,
-                    visibleMatch:true,
-                    nameMatch,
-                    missing: false
-                };
-            }            
+              
 
             async function compareProjectToRemixSource() {
                 const projectId = getProjectIdFromUrl();
@@ -692,25 +606,21 @@
                     const currentMap = new Map(currentTargets.map(t => [normalizeTargetName(t), t]));
                     const relevantNames = new Set([...sourceMap.keys(), ...currentMap.keys()].filter(name => name && name !== 'Player'));                    
                     const details = [];
-                    console.log('===================================');
-                    console.log('sourceTargets => ', sourceTargets);
-                    console.log('===================================');
-                    console.log('sourceMap => ', sourceMap);
-                    console.log('currentMap => ', currentMap);
-                    console.log('relevantNames => ', relevantNames);
-                    console.log('===================================');
+                    // console.log('===================================');
+                    // console.log('sourceTargets => ', sourceTargets);
+                    // console.log('===================================');
+                    // console.log('sourceMap => ', sourceMap);
+                    // console.log('currentMap => ', currentMap);
+                    // console.log('relevantNames => ', relevantNames);
+                    // console.log('===================================');
 
                     Array.from(relevantNames).sort().forEach(name => {
                         const sourceTarget = sourceMap.get(name);
                         const currentTarget = currentMap.get(name);
-                        console.log( sourceTarget, currentTarget);
-                        console.log('===================================>',name, sourceTarget, currentTarget);
-                        let result ;
-                        if( sourceTarget.isStage && currentTarget.isStage){
-                            result = compareStage(sourceTarget, currentTarget);
-                        }else{
-                            result = compareSprite(sourceTarget, currentTarget);
-                        }
+                        // console.log( sourceTarget, currentTarget);
+                        // console.log('===================================>',name, sourceTarget, currentTarget);
+                        const result = compareSprite(sourceTarget, currentTarget);
+                        
                         const changedItems = [];
 
                         if (result.missing) {
@@ -719,12 +629,7 @@
                             if (!result.variablesMatch) changedItems.push('變數');
                             if (!result.listsMatch) changedItems.push('清單');
                             if (!result.blocksMatch) changedItems.push('程式');
-                            if (!result.costumesMatch) changedItems.push('造型');
-                            if (!result.currentCostumeMatch) changedItems.push('目前造型');
-                            if (!result.directionMatch) changedItems.push('方向');
-                            if (!result.sizeMatch) changedItems.push('大小');
-                            if (!result.visibleMatch) changedItems.push('顯示/隱藏');
-                            if (!result.nameMatch) changedItems.push('名稱');
+                            if (!result.costumesMatch) changedItems.push('造型');                           
                         }
 
                         details.push({
@@ -733,12 +638,7 @@
                             variablesMatch: result.variablesMatch,
                             listsMatch: result.listsMatch,
                             blocksMatch: result.blocksMatch,
-                            costumesMatch: result.costumesMatch,
-                            currentCostumeMatch: result.currentCostumeMatch,
-                            directionMatch: result.directionMatch,
-                            sizeMatch: result.sizeMatch,
-                            visibleMatch: result.visibleMatch,
-                            nameMatch: result.nameMatch,
+                            costumesMatch: result.costumesMatch,                            
                             changedItems,
                             missing: result.missing
                         });
@@ -764,7 +664,7 @@
                             <span class="status-pill ${item.overallMatch ? 'running' : 'stopped'}">${statusText}</span>
                         </div>
                         <div class="comparison-item-detail">差異：${changedText}</div>
-                        <div class="comparison-item-detail">變數：${item.variablesMatch ? '相同' : '不同'}，清單：${item.listsMatch ? '相同' : '不同'}，程式：${item.blocksMatch ? '相同' : '不同'}，造型：${item.costumesMatch ? '相同' : '不同'}，目前造型：${item.currentCostumeMatch ? '相同' : '不同'}，方向：${item.directionMatch ? '相同' : '不同'}，大小：${item.sizeMatch ? '相同' : '不同'}，顯示：${item.visibleMatch ? '相同' : '不同'}，名稱：${item.nameMatch ? '相同' : '不同'}</div>
+                        <div class="comparison-item-detail">變數：${item.variablesMatch ? 'O' : 'X'}，清單：${item.listsMatch ? 'O' : 'X'}，程式：${item.blocksMatch ? 'O' : 'X'}，造型：${item.costumesMatch ? 'O' : 'X'}</div>
                     </li>
                 `;
             }
