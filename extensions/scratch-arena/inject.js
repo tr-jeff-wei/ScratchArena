@@ -230,7 +230,7 @@
                         padding-left: 6px;
                         background: rgba(124, 242, 167, 0.06);
                     }
-                    #${overlayId} .workflow-button {
+                    #${overlayId} .workflow-status {
                         width: 100%;
                         margin: 6px 0 8px;
                         padding: 8px 10px;
@@ -238,16 +238,8 @@
                         border: 1px solid rgba(90, 201, 125, 0.4);
                         border-radius: 10px;
                         color: #edf7f0;
-                        cursor: pointer;
                         font-weight: 700;
                         font-size: 11px;
-                    }
-                    #${overlayId} .workflow-button:hover {
-                        background: linear-gradient(135deg, rgba(90, 201, 125, 0.32), rgba(90, 201, 125, 0.18));
-                    }
-                    #${overlayId} .workflow-button:disabled {
-                        cursor: not-allowed;
-                        opacity: 0.45;
                     }
                     #${overlayId} .workflow-sublist {
                         margin-left: 18px;
@@ -372,6 +364,7 @@
             
             let remixComparison = null;
             let remixComparisonStatus = 'unknown';
+            let evaluationRunId = 0;
 
             function getProjectIdFromUrl() {
                 const match = location.href.match(/projects\/(\d+)/) || location.pathname.match(/projects\/(\d+)/);
@@ -700,8 +693,10 @@
             }
 
             function startRemixComparison() {
+                const runId = evaluationRunId;
                 compareProjectToRemixSource()
                     .then(result => {
+                        if (runId !== evaluationRunId) return;
                         remixComparison = result;
                         remixComparisonStatus = result.status;
                         refreshRemixComparisonBlock();
@@ -709,6 +704,7 @@
                         refreshOverlay();
                     })
                     .catch(error => {
+                        if (runId !== evaluationRunId) return;
                         remixComparison = { status: 'unknown', details: [], error: error?.message || '比對失敗' };
                         remixComparisonStatus = 'unknown';
                         refreshRemixComparisonBlock();
@@ -816,6 +812,7 @@
                 const store = window.__scratchArenaStore;
                 if (store && typeof store.getState === 'function') {
                     const state = store.getState();
+                    console.log('getProjectShareStatus => state:', state);
                     const sharePaths = [
                         state.scratchGui?.projectInfo,
                         state.scratchGui?.projectState,
@@ -899,10 +896,13 @@
                 successDetected: false,
                 uploadReported: false
             };
+            const EVALUATION_HOVER_MS = 10000;
+            let evaluationHoverStartedAt = null;
+            let evaluationHoverTimer = null;
 
             function findGreenFlagButton() {
                 const selectors = [
-                    'button[aria-label="Green Flag"]',
+                    'button[aria-label="Start project"]',
                     'button[aria-label="綠旗"]',
                     'button[title*="Green Flag"]',
                     'button[title*="綠旗"]',
@@ -938,9 +938,9 @@
                 `;
             }
 
-            function renderWorkflowFlow(overallState, shareStatus, scoreStatus, nonPlayerStatus, broadcastStatus, speedStatus) {
+            function renderWorkflowFlow(overallState, shareSaveStatus, scoreStatus, nonPlayerStatus, broadcastStatus, speedStatus) {
                 const stage1Ready = workflowState.evaluationStarted;
-                const stage1Pass = stage1Ready && shareStatus === 'pass' && scoreStatus === 'pass' && nonPlayerStatus === 'pass' && broadcastStatus === 'pass';
+                const stage1Pass = stage1Ready && shareSaveStatus === 'pass' && scoreStatus === 'pass' && nonPlayerStatus === 'pass' && broadcastStatus === 'pass';
                 const stage2Ready = stage1Pass && workflowState.greenFlagStarted;
                 const stage2Pass = stage2Ready && !workflowState.mouseLeftFlag && !workflowState.keyboardInputDetected && speedStatus !== 'fail';
                 const stage3Ready = stage2Pass && workflowState.successDetected;
@@ -951,14 +951,19 @@
                         status: workflowState.evaluationStarted ? (stage1Pass ? 'pass' : 'active') : 'locked',
                         children: [
                             {
-                                label: '1.1 非更動項目檢核',
-                                status: shareStatus === 'pass' && nonPlayerStatus === 'pass' ? 'pass' : shareStatus === 'fail' || nonPlayerStatus === 'fail' ? 'fail' : stage1Ready ? 'active' : 'locked',
+                                label: '1.1 作品儲存與分享檢核',
+                                status: shareSaveStatus === 'pass' ? 'pass' : shareSaveStatus === 'fail' ? 'fail' : stage1Ready ? 'active' : 'locked',
+                                sub: '作品須已儲存並分享'
+                            },
+                            {
+                                label: '1.2 非更動項目檢核',
+                                status: nonPlayerStatus === 'pass' ? 'pass' : nonPlayerStatus === 'fail' ? 'fail' : stage1Ready ? 'active' : 'locked',
                                 sub: '背景與非 Player 角色需與 remix 原始來源一致'
                             },
                             {
-                                label: '1.2 Player 程式合規檢核',
+                                label: '1.3 Player 程式合規檢核',
                                 status: scoreStatus === 'pass' && broadcastStatus === 'pass' ? 'pass' : scoreStatus === 'fail' || broadcastStatus === 'fail' ? 'fail' : stage1Ready ? 'active' : 'locked',
-                                sub: '不可修改 Score，且不能使用非 Player 角色廣播事件'
+                                sub: '不可修改 Score，且不能使用既有角色廣播事件'
                             }
                         ]
                     },
@@ -1006,13 +1011,18 @@
                     }
                 ];
 
-                const isReady = workflowState.evaluationStarted && stage1Pass && workflowState.greenFlagStarted && stage2Pass;
+                const hoverSeconds = evaluationHoverStartedAt === null
+                    ? 0
+                    : Math.min(EVALUATION_HOVER_MS, Date.now() - evaluationHoverStartedAt) / 1000;
+                const evaluationPrompt = workflowState.evaluationStarted
+                    ? '檢核已啟動，請保持滑鼠在綠旗上，並避免鍵盤輸入'
+                    : evaluationHoverStartedAt === null
+                        ? '請將滑鼠移到綠旗並保持 10 秒，並避免鍵盤輸入'
+                        : `請保持不動，檢核將在 ${(EVALUATION_HOVER_MS / 1000 - hoverSeconds).toFixed(1)} 秒後啟動`;
 
                 return `
-                    <div class="workflow-button-wrap">
-                        <button id="scratch-arena-start-evaluation" class="workflow-button" ${workflowState.evaluationStarted ? 'disabled' : ''}>
-                            ${workflowState.evaluationStarted ? '已啟動評估' : '啟動評估'}
-                        </button>
+                    <div class="workflow-button-wrap" aria-live="polite">
+                        <div class="workflow-status">${evaluationPrompt}</div>
                     </div>
                     <ul class="workflow-list">
                         ${workflow.map(group => `
@@ -1030,13 +1040,10 @@
                 `;
             }
 
+            // 監聽使用者操作事件，並根據條件更新 workflowState
             function registerFlowEventListeners() {
                 document.addEventListener('click', (event) => {
-                    const clickedElement = event.target instanceof Element ? event.target : null;
-                    if (!workflowState.evaluationStarted && clickedElement?.closest('#scratch-arena-start-evaluation')) {
-                        startEvaluation();
-                        return;
-                    }
+                    console.log('Click event detected:', event.target);
                     const flagButton = findGreenFlagButton();
                     if (!flagButton || workflowState.greenFlagStarted || !workflowState.evaluationStarted) return;
                     if (!isStage1Passed()) return;
@@ -1050,29 +1057,86 @@
                 });
 
                 document.addEventListener('keydown', (event) => {
-                    if (workflowState.greenFlagStarted && !workflowState.executionFinished && !event.repeat) {
-                        const targetKey = event.key ? event.key.toLowerCase() : '';
-                        if (!['meta', 'control', 'alt', 'shift'].includes(targetKey) && !event.ctrlKey && !event.altKey && !event.metaKey) {
-                            workflowState.keyboardInputDetected = true;
-                        }
+                    console.log('Keydown event detected:', event.key);                    
+                    const targetKey = event.key ? event.key.toLowerCase() : '';
+                    if (!['meta', 'control', 'alt', 'shift'].includes(targetKey) && !event.ctrlKey && !event.altKey && !event.metaKey) {
+                        workflowState.keyboardInputDetected = true;
+
+                        resetEvaluationWorkflow();
+                        return;
                     }
+                
                 });
 
                 document.addEventListener('pointermove', (event) => {
-                    if (!workflowState.greenFlagStarted || workflowState.executionFinished) return;
                     const flagButton = findGreenFlagButton();
-                    if (!flagButton) return;
+                    if (!flagButton) {
+                        resetEvaluationWorkflow();
+                        return;
+                    }
                     const rect = flagButton.getBoundingClientRect();
                     const isInside = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
                     if (!isInside) {
-                        workflowState.mouseLeftFlag = true;
+                        resetEvaluationWorkflow();
+                        return;
                     }
+
+                    if (evaluationHoverStartedAt === null && !workflowState.evaluationStarted) {
+                        evaluationHoverStartedAt = Date.now();
+                        evaluationHoverTimer = setInterval(() => {
+                            const currentFlag = findGreenFlagButton();
+                            if (!currentFlag) {
+                                resetEvaluationWorkflow();
+                                return;
+                            }
+                            const currentRect = currentFlag.getBoundingClientRect();
+                            const stillInside = event.clientX >= currentRect.left && event.clientX <= currentRect.right && event.clientY >= currentRect.top && event.clientY <= currentRect.bottom;
+                            if (!stillInside || workflowState.keyboardInputDetected) {
+                                resetEvaluationWorkflow();
+                                return;
+                            }
+                            if (Date.now() - evaluationHoverStartedAt >= EVALUATION_HOVER_MS) {
+                                clearInterval(evaluationHoverTimer);
+                                evaluationHoverTimer = null;
+                                startEvaluation();
+                            }
+                            refreshOverlay();
+                        }, 100);
+                    }
+                    workflowState.mouseLeftFlag = false;
                 });
             }
 
             const overlay = ensureOverlay();
             const overlayBody = overlay.querySelector('#scratch-arena-info-body');
             let executionTimer = null;
+
+            function resetEvaluationWorkflow() {
+                const wasActive = evaluationHoverStartedAt !== null || workflowState.evaluationStarted || workflowState.greenFlagStarted;
+                if (evaluationHoverTimer !== null) {
+                    clearInterval(evaluationHoverTimer);
+                    evaluationHoverTimer = null;
+                }
+                evaluationHoverStartedAt = null;
+                evaluationRunId += 1;
+                workflowState.evaluationStarted = false;
+                workflowState.greenFlagStarted = false;
+                workflowState.mouseLeftFlag = false;
+                workflowState.keyboardInputDetected = false;
+                workflowState.executionFinished = false;
+                workflowState.successDetected = false;
+                workflowState.uploadReported = false;
+                playerPreX = null;
+                playerPreY = null;
+                remixComparison = null;
+                remixComparisonStatus = 'unknown';
+                remixComparisonRendered = false;
+                if (executionTimer !== null) {
+                    clearInterval(executionTimer);
+                    executionTimer = null;
+                }
+                if (wasActive) refreshOverlay();
+            }
 
             function startExecutionMonitoring() {
                 if (executionTimer !== null) return;
@@ -1081,6 +1145,7 @@
 
             function startEvaluation() {
                 if (workflowState.evaluationStarted) return;
+                evaluationRunId += 1;
                 workflowState.evaluationStarted = true;
                 startRemixComparison();
                 refreshOverlay();
@@ -1090,14 +1155,18 @@
 
             function refreshOverlay() {
                 const targets = vm.runtime?.targets || [];
+                // 尋找 Player 角色
                 const player = targets.find(t => {
                     const name = t.sprite?.name || (typeof t.getName === 'function' ? t.getName() : undefined);
                     return name === 'Player';
                 });
+                // 尋找 Ending Status 角色
                 const ending = targets.find(t => {
                     const name = t.sprite?.name || (typeof t.getName === 'function' ? t.getName() : undefined);
                     return name === 'Ending Status';
                 });
+
+                // 取得專案執行狀態
                 const projectStatus = getProjectStatus(vm);
 
                 const isExecutionMonitoring = workflowState.greenFlagStarted;
@@ -1218,11 +1287,6 @@
                             ${workflowHtml}
                         `;
                     }
-                }
-
-                const startButton = overlayBody.querySelector('#scratch-arena-start-evaluation');
-                if (startButton && !workflowState.evaluationStarted) {
-                    startButton.addEventListener('click', startEvaluation, { once: true });
                 }
 
                 if (remixComparisonRendered && remixComparison) {
