@@ -231,7 +231,7 @@
                         background: rgba(124, 242, 167, 0.06);
                     }
                     #${overlayId} .workflow-status {
-                        width: 100%;
+                        width: 90%;
                         margin: 6px 0 8px;
                         padding: 8px 10px;
                         background: linear-gradient(135deg, rgba(90, 201, 125, 0.22), rgba(90, 201, 125, 0.1));
@@ -1017,7 +1017,7 @@
                 const evaluationPrompt = workflowState.evaluationStarted
                     ? '檢核已啟動，請保持滑鼠在綠旗上，並避免鍵盤輸入'
                     : evaluationHoverStartedAt === null
-                        ? '請將滑鼠移到綠旗並保持 10 秒，並避免鍵盤輸入'
+                        ? '專案[停止]，滑鼠移到綠旗並保持 10 秒，並避免鍵盤輸入'
                         : `請保持不動，檢核將在 ${(EVALUATION_HOVER_MS / 1000 - hoverSeconds).toFixed(1)} 秒後啟動`;
 
                 return `
@@ -1080,8 +1080,8 @@
                         resetEvaluationWorkflow();
                         return;
                     }
-
-                    if (evaluationHoverStartedAt === null && !workflowState.evaluationStarted) {
+                    const projectStatus = getProjectStatus(vm);
+                    if (projectStatus === 'stopped' && evaluationHoverStartedAt === null && !workflowState.evaluationStarted) {
                         evaluationHoverStartedAt = Date.now();
                         evaluationHoverTimer = setInterval(() => {
                             const currentFlag = findGreenFlagButton();
