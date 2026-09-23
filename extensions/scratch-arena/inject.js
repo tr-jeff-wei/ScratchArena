@@ -525,7 +525,7 @@
                 return JSON.stringify(normalizeForComparison(a)) === JSON.stringify(normalizeForComparison(b));
             }
 
-            function compareSprite(source, current) {
+            function compareSprite(name, source, current) {
                 if (!source && !current) {
                     return {
                         overallMatch: true,
@@ -548,19 +548,19 @@
                 }
 
                 const variablesMatch = variableNamesMatch(source.variables, current.variables);
-                console.log('sprite=>  variablesMatch => ', variablesMatch);
+                console.log(`sprite:${name}=>  variablesMatch => `, variablesMatch);
                 console.log(source.variables);
                 console.log(current.variables);
                 const listsMatch = variableNamesMatch(source.lists,current.lists);
-                console.log('sprite=>  listsMatch => ', listsMatch);
+                console.log(`sprite:${name}=>  listsMatch => `, listsMatch);
                 console.log(source.lists);
                 console.log(current.lists);
                 const blocksMatch = jsonEqual(normalizeBlocks(source.blocks), normalizeBlocks(current.blocks));
-                console.log('sprite=>  blocksMatch => ', blocksMatch);
+                console.log(`sprite:${name}=>  blocksMatch => `, blocksMatch);
                 console.log(source.blocks);
                 console.log(current.blocks);
                 const costumesMatch = jsonEqual(normalizeCostumes(source.costumes), normalizeCostumes(current.costumes));
-                console.log('sprite=>  costumesMatch => ', costumesMatch);
+                console.log(`sprite:${name}=>  costumesMatch => `, costumesMatch);
                 console.log(source.costumes);
                 console.log(current.costumes);
                
@@ -612,7 +612,7 @@
                         const currentTarget = currentMap.get(name);
                         // console.log( sourceTarget, currentTarget);
                         // console.log('===================================>',name, sourceTarget, currentTarget);
-                        const result = compareSprite(sourceTarget, currentTarget);
+                        const result = compareSprite(name,sourceTarget, currentTarget);
                         
                         const changedItems = [];
 
@@ -714,7 +714,7 @@
             }
 
             function getProjectStatus(vmInstance) {
-                return vmInstance.runtime.threads.length > 0 ? 'running' : 'stopped';
+                return window.__scratchArenaStore.getState().scratchGui.vmStatus.running? 'running': 'stopped';
             }
 
             function getTargetScoreValue(target) {
@@ -808,42 +808,12 @@
                 }) || null;
             }
 
-            function getProjectShareStatus() {
-                const store = window.__scratchArenaStore;
-                if (store && typeof store.getState === 'function') {
-                    const state = store.getState();
-                    console.log('getProjectShareStatus => state:', state);
-                    const sharePaths = [
-                        state.scratchGui?.projectInfo,
-                        state.scratchGui?.projectState,
-                        state.scratchGui?.sharingState,
-                        state.scratchGui?.sharedProject,
-                        state.scratchGui?.project?.sharingState,
-                        state.scratchGui?.project?.shared
-                    ];
-                    for (const candidate of sharePaths) {
-                        if (candidate == null) continue;
-                        if (typeof candidate === 'boolean') {
-                            return candidate ? 'pass' : 'fail';
-                        }
-                        if (typeof candidate === 'string') {
-                            const text = candidate.trim().toLowerCase();
-                            if (text === 'shared' || text === '已分享' || text === 'true') return 'pass';
-                            if (text === 'unshared' || text === 'share' || text === '分享' || text === 'false') return 'fail';
-                        }
-                        if (typeof candidate === 'object') {
-                            if (typeof candidate.shared === 'boolean') {
-                                return candidate.shared ? 'pass' : 'fail';
-                            }
-                            if (typeof candidate.sharingState === 'string') {
-                                const text = candidate.sharingState.trim().toLowerCase();
-                                if (text === 'shared' || text === '已分享') return 'pass';
-                                if (text === 'unshared' || text === 'share' || text === '分享') return 'fail';
-                            }
-                        }
-                    }
-                }
+            function getSavedStatus(){            
+                return !window.__scratchArenaStore.getState().scratchGui.projectChanged?'pass':'fail' ;            
+            }
 
+            function getProjectShareStatus() {
+               
                 const button = getShareButton();
                 if (!button) return 'unknown';
                 const text = (button.textContent || '').trim().toLowerCase();
@@ -888,6 +858,8 @@
             }
 
             const workflowState = {
+                projectShared:false,
+                projectSaved:false,
                 evaluationStarted: false,
                 greenFlagStarted: false,
                 mouseLeftFlag: false,
@@ -1080,7 +1052,7 @@
                         resetEvaluationWorkflow();
                         return;
                     }
-                    const projectStatus = getProjectStatus(vm);
+                    const projectStatus = getProjectStatus();
                     if (projectStatus === 'stopped' && evaluationHoverStartedAt === null && !workflowState.evaluationStarted) {
                         evaluationHoverStartedAt = Date.now();
                         evaluationHoverTimer = setInterval(() => {
@@ -1119,6 +1091,8 @@
                 }
                 evaluationHoverStartedAt = null;
                 evaluationRunId += 1;
+                workflowState.projectSaved = false;
+                workflowState.projectShared = false;
                 workflowState.evaluationStarted = false;
                 workflowState.greenFlagStarted = false;
                 workflowState.mouseLeftFlag = false;
@@ -1147,7 +1121,10 @@
                 if (workflowState.evaluationStarted) return;
                 evaluationRunId += 1;
                 workflowState.evaluationStarted = true;
+                workflowState.projectShared = getProjectShareStatus();
+                workflowState.projectSaved = getSavedStatus();
                 startRemixComparison();
+
                 refreshOverlay();
             }
 
@@ -1166,9 +1143,7 @@
                     return name === 'Ending Status';
                 });
 
-                // 取得專案執行狀態
-                const projectStatus = getProjectStatus(vm);
-
+                
                 const isExecutionMonitoring = workflowState.greenFlagStarted;
                 const playerX = isExecutionMonitoring && player ? Math.round(player.x * 100) / 100 : '等待開始執行';
                 const playerY = isExecutionMonitoring && player ? Math.round(player.y * 100) / 100 : '等待開始執行';
@@ -1176,69 +1151,73 @@
                 if (isExecutionMonitoring && player && playerPreX !== null && playerPreY !== null) {
                     playerVelocity = Math.floor(
                         Math.sqrt((playerX - playerPreX)*(playerX - playerPreX) + (playerY - playerPreY)*(playerY - playerPreY)));
-                }
-                if (isExecutionMonitoring && player) {
-                    playerPreX = playerX;
-                    playerPreY = playerY;
-                }
-                // 速度計算需考量 fps
-                const playerSpeed = isExecutionMonitoring && player ? Math.round(playerVelocity * 100) / 300 : '等待開始執行';
-                const endingCostume = isExecutionMonitoring ? getCostumeName(ending) : '等待開始執行';
-
-                const nonPlayerTargets = targets.filter(t => {
-                    const name = t.sprite?.name || (typeof t.getName === 'function' ? t.getName() : undefined);
-                    return name !== 'Player';
-                });
-
-                const scoreStatus = workflowState.evaluationStarted
+                    }
+                    if (isExecutionMonitoring && player) {
+                        playerPreX = playerX;
+                        playerPreY = playerY;
+                    }
+                    // 速度計算需考量 fps
+                    const playerSpeed = isExecutionMonitoring && player ? Math.round(playerVelocity * 100) / 300 : '等待開始執行';
+                    const endingCostume = isExecutionMonitoring ? getCostumeName(ending) : '等待開始執行';
+                    
+                    const nonPlayerTargets = targets.filter(t => {
+                        const name = t.sprite?.name || (typeof t.getName === 'function' ? t.getName() : undefined);
+                        return name !== 'Player';
+                    });
+                    
+                    const scoreStatus = workflowState.evaluationStarted
                     ? (checkModifyScoreVar(targets) ? 'fail' : 'pass')
                     : 'unknown';
-                const shareStatus = workflowState.evaluationStarted ? getProjectShareStatus() : 'unknown';
-                const nonPlayerStatus = remixComparisonStatus === 'pass' ? 'pass' : remixComparisonStatus === 'fail' ? 'fail' : 'unknown';
-
-                const nonPlayerBroadcasts = new Set(getBroadcastNames({ blocks: nonPlayerTargets.flatMap(t => Object.values(t.blocks?._blocks || t.blocks || {})) }));
-                const playerBroadcasts = getBroadcastNames(player);
-                const broadcastStatus = !workflowState.evaluationStarted
+                    
+                    const nonPlayerStatus = remixComparisonStatus === 'pass' ? 'pass' : remixComparisonStatus === 'fail' ? 'fail' : 'unknown';
+                    
+                    const nonPlayerBroadcasts = new Set(getBroadcastNames({ blocks: nonPlayerTargets.flatMap(t => Object.values(t.blocks?._blocks || t.blocks || {})) }));
+                    const playerBroadcasts = getBroadcastNames(player);
+                    const broadcastStatus = !workflowState.evaluationStarted
                     ? 'unknown'
                     : playerBroadcasts.length === 0
-                        ? 'pass'
-                        : playerBroadcasts.some(name => nonPlayerBroadcasts.has(name))
-                            ? 'fail'
-                            : 'pass';
-
-                const speedStatus = !isExecutionMonitoring || playerSpeed === '未找到' || playerSpeed === '等待開始執行'
+                    ? 'pass'
+                    : playerBroadcasts.some(name => nonPlayerBroadcasts.has(name))
+                    ? 'fail'
+                    : 'pass';
+                    
+                    const speedStatus = !isExecutionMonitoring || playerSpeed === '未找到' || playerSpeed === '等待開始執行'
                     ? 'unknown'
                     : playerSpeed < 10
-                        ? 'pass'
-                        : 'fail';
-
-                const constraintHtml = [
-                    renderConstraintItem('專案需為 [已分享] 狀態', shareStatus),
-                    renderConstraintItem('不能修改變數 Score', scoreStatus),
-                    renderConstraintItem('不能更動所有非玩家的角色內容', nonPlayerStatus),
-                    renderConstraintItem('Player 角色不能使用所有非玩家角色的廣播事件，但可以建構新的廣播事件', broadcastStatus),
-                    renderConstraintItem('Player 每次移動限制速度 < 10', speedStatus)
-                ].join('');
-
-                const workflowHtml = renderWorkflowFlow(
-                    { evaluationStarted: workflowState.evaluationStarted, greenFlagStarted: workflowState.greenFlagStarted },
-                    shareStatus,
-                    scoreStatus,
-                    nonPlayerStatus,
-                    broadcastStatus,
-                    speedStatus
-                );
-
-                const staticFieldsHtml = `
+                    ? 'pass'
+                    : 'fail';
+                    
+               
+                    const constraintHtml = [
+                        renderConstraintItem('專案需為 [已分享] 狀態', workflowState.projectShared),
+                        renderConstraintItem('專案需為 [已儲存] 狀態', workflowState.projectSaved),
+                        renderConstraintItem('不能修改變數 Score', scoreStatus),
+                        renderConstraintItem('不能更動所有非玩家的角色內容', nonPlayerStatus),
+                        renderConstraintItem('Player 角色不能使用所有非玩家角色的廣播事件，但可以建構新的廣播事件', broadcastStatus),
+                        renderConstraintItem('Player 每次移動限制速度 < 10', speedStatus)
+                    ].join('');
+                    
+                    const workflowHtml = renderWorkflowFlow(
+                        { evaluationStarted: workflowState.evaluationStarted, greenFlagStarted: workflowState.greenFlagStarted },
+                        workflowState.projectSaved && workflowState.projectShared,
+                        scoreStatus,
+                        nonPlayerStatus,
+                        broadcastStatus,
+                        speedStatus
+                    );
+                    
+                    // 取得專案執行狀態
+                    const projectStatus = getProjectStatus();
+                    const staticFieldsHtml = `
                     <div class="field"><span class="label">Player X:</span> <span class="value">${playerX}</span></div>
                     <div class="field"><span class="label">Player Y:</span> <span class="value">${playerY}</span></div>
                     <div class="field"><span class="label">Player Speed:</span> <span class="value">${playerSpeed}</span> <span class="warning"> <10 </span> </div>
                     <div class="field"><span class="label">Ending Status costume:</span> <span class="value">${endingCostume}</span></div>
                     <div class="field"><span class="label">Project status:</span> <span class="value"><span class="status-pill ${projectStatus}">${projectStatus}</span></span></div>
-                `;
-
-                const constraintBox = overlayBody.querySelector('.constraint-box');
-                if (!constraintBox) {
+                    `;
+                    
+                    const constraintBox = overlayBody.querySelector('.constraint-box');
+                    if (!constraintBox) {
                     overlayBody.innerHTML = `
                         ${staticFieldsHtml}
                         <div class="workflow-box">
