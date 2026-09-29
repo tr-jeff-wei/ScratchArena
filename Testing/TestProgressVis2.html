@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#090d12">
+	<title>ScratchArena｜窄幅流程控制台</title>
+	<style>
+		:root {
+			color-scheme: dark;
+			--void: #090d12;
+			--panel: #101820;
+			--panel-raised: #151f28;
+			--line: #273740;
+			--line-bright: #40545d;
+			--text: #ecf3ed;
+			--muted: #87989b;
+			--dim: #5d7075;
+			--mint: #7bf0bf;
+			--mint-dim: #2b8c6a;
+			--amber: #ffbd69;
+			--coral: #ff776c;
+			--ice: #9dd8f3;
+			--rail-width: min(25vw, 320px);
+		}
+		* { box-sizing: border-box; }
+		body {
+			margin: 0;
+			min-width: 280px;
+			min-height: 100vh;
+			color: var(--text);
+			background-color: var(--void);
+			background-image: linear-gradient(rgba(128, 169, 172, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(128, 169, 172, .035) 1px, transparent 1px);
+			background-size: 36px 36px;
+			font-family: "Aptos", "Microsoft JhengHei UI", "Noto Sans TC", sans-serif;
+			line-height: 1.5;
+		}
+		button { color: inherit; font: inherit; }
+		button:focus-visible, input:focus-visible { outline: 2px solid var(--mint); outline-offset: 3px; }
+		.app { min-height: 100vh; }
+		.topbar {
+			display: flex;
+			min-height: 68px;
+			align-items: center;
+			justify-content: space-between;
+			gap: 18px;
+			padding: 0 30px;
+			background: rgba(9, 13, 18, .92);
+			border-bottom: 1px solid var(--line);
+		}
+		.brand { display: flex; align-items: center; gap: 11px; font-size: 12px; font-weight: 800; letter-spacing: .12em; white-space: nowrap; }
+		.brand-symbol { position: relative; display: grid; width: 27px; height: 27px; place-items: center; color: var(--mint); border: 1px solid var(--mint-dim); transform: rotate(45deg); }
+		.brand-symbol::after { width: 7px; height: 7px; background: var(--mint); box-shadow: 0 0 12px rgba(123,240,191,.75); content: ""; }
+		.brand-symbol span { position: absolute; inset: 0; transform: rotate(-45deg); }
+		.system-state { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
+		.live-dot { width: 7px; height: 7px; background: var(--mint); border-radius: 50%; box-shadow: 0 0 10px var(--mint); animation: blink 2.2s ease-in-out infinite; }
+		@keyframes blink { 50% { opacity: .35; box-shadow: 0 0 2px var(--mint); } }
+		.layout { display: grid; min-height: calc(100vh - 68px); grid-template-columns: var(--rail-width) minmax(0, 1fr); }
+		.journey {
+			position: relative;
+			width: var(--rail-width);
+			min-width: 0;
+			padding: 34px 22px 28px;
+			background: rgba(15, 23, 30, .88);
+			border-right: 1px solid var(--line);
+			overflow: hidden;
+		}
+		.journey::before { position: absolute; top: 0; right: 0; left: 0; height: 2px; background: linear-gradient(90deg, var(--mint), transparent 78%); content: ""; opacity: .75; }
+		.rail-heading { margin-bottom: 43px; }
+		.kicker { display: flex; align-items: center; gap: 8px; margin: 0 0 7px; color: var(--mint); font-size: 9px; font-weight: 800; letter-spacing: .2em; }
+		.kicker::before { width: 14px; height: 1px; background: currentColor; content: ""; }
+		.rail-heading h1 { margin: 0; font-size: 16px; font-weight: 650; letter-spacing: .02em; }
+		.rail-caption { margin: 7px 0 0; color: var(--muted); font-size: 10px; }
+		.stage-list { position: relative; display: grid; gap: 18px; }
+		.rail-line { position: absolute; z-index: 0; top: 22px; bottom: 22px; left: 17px; width: 1px; overflow: hidden; background: var(--line-bright); }
+		.rail-line::after { position: absolute; top: -30%; left: -1px; width: 3px; height: 30%; background: var(--mint); box-shadow: 0 0 9px var(--mint); content: ""; animation: trace 4.5s ease-in-out infinite; }
+		@keyframes trace { to { transform: translateY(430%); } }
+		.stage-button {
+			position: relative;
+			z-index: 1;
+			display: grid;
+			width: 100%;
+			min-width: 0;
+			grid-template-columns: 36px minmax(0, 1fr);
+			align-items: center;
+			gap: 12px;
+			padding: 7px 8px 7px 0;
+			text-align: left;
+			background: transparent;
+			border: 0;
+			cursor: pointer;
+		}
+		.stage-node { display: grid; width: 35px; height: 35px; place-items: center; color: var(--muted); background: #111b22; border: 1px solid var(--line-bright); border-radius: 50%; font-size: 11px; font-weight: 800; transition: .25s ease; }
+		.stage-button:hover .stage-node { color: var(--mint); border-color: var(--mint-dim); }
+		.stage-button[aria-current="step"] .stage-node { color: var(--void); background: var(--mint); border-color: var(--mint); box-shadow: 0 0 0 5px rgba(123,240,191,.09), 0 0 22px rgba(123,240,191,.3); }
+		.stage-copy { min-width: 0; }
+		.stage-name { display: block; overflow-wrap: anywhere; color: var(--muted); font-size: 12px; font-weight: 700; transition: color .2s ease; }
+		.stage-button[aria-current="step"] .stage-name { color: var(--text); }
+		.stage-meta { display: flex; justify-content: space-between; gap: 5px; margin-top: 3px; color: var(--dim); font-size: 9px; letter-spacing: .04em; }
+		.stage-meta strong { color: var(--mint); font-weight: 600; }
+		.rail-foot { position: absolute; right: 22px; bottom: 25px; left: 22px; padding-top: 14px; color: var(--dim); border-top: 1px solid var(--line); font-size: 9px; letter-spacing: .09em; }
+		.rail-foot span { color: var(--mint); }
+		.content { min-width: 0; padding: 32px clamp(18px, 4vw, 58px) 48px; }
+		.content-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+		.content-title { min-width: 0; }
+		.content-title .kicker { color: var(--amber); }
+		.content-title h2 { margin: 5px 0 4px; font-size: clamp(23px, 3vw, 34px); line-height: 1.2; letter-spacing: 0; }
+		.content-title p { margin: 0; color: var(--muted); font-size: 12px; }
+		.progress-box { width: 162px; flex: 0 0 162px; padding: 11px 13px; background: rgba(21,31,40,.82); border: 1px solid var(--line); }
+		.progress-label { display: flex; justify-content: space-between; color: var(--muted); font-size: 9px; letter-spacing: .08em; }
+		.progress-number { margin-top: 2px; font-size: 20px; font-variant-numeric: tabular-nums; font-weight: 700; }
+		.progress-number small { color: var(--dim); font-size: 11px; font-weight: 500; }
+		.progress-track { height: 3px; margin-top: 8px; background: #26343b; }
+		.progress-fill { width: 0; height: 100%; background: var(--mint); box-shadow: 0 0 9px rgba(123,240,191,.55); transition: width .35s ease; }
+		.phase-overline { display: flex; align-items: center; gap: 10px; margin: 24px 0 13px; color: var(--muted); font-size: 10px; letter-spacing: .13em; }
+		.phase-overline::after { height: 1px; flex: 1; background: var(--line); content: ""; }
+		.checklist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+		.task {
+			position: relative;
+			display: grid;
+			min-width: 0;
+			grid-template-columns: 22px minmax(0, 1fr) auto;
+			align-items: start;
+			gap: 11px;
+			padding: 15px 14px;
+			background: linear-gradient(105deg, rgba(21,31,40,.92), rgba(16,24,32,.76));
+			border: 1px solid var(--line);
+			cursor: pointer;
+			transition: border-color .2s ease, background .2s ease, transform .2s ease;
+		}
+		.task::before { position: absolute; top: -1px; left: 13px; width: 22px; height: 1px; background: var(--ice); content: ""; opacity: .55; }
+		.task:hover { background: var(--panel-raised); border-color: var(--line-bright); transform: translateY(-2px); }
+		.task input { width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--mint); cursor: pointer; }
+		.task-title { display: block; color: var(--text); font-size: 13px; font-weight: 650; overflow-wrap: anywhere; }
+		.task-note { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+		.task-code { padding-top: 1px; color: var(--dim); font-size: 9px; font-variant-numeric: tabular-nums; }
+		.task:has(input:checked) { border-color: rgba(123,240,191,.44); }
+		.task:has(input:checked) .task-title { color: #b1c8bd; }
+		.task:has(input:checked) .task-code { color: var(--mint); }
+		.task:has(input:checked)::before { background: var(--mint); opacity: 1; }
+		.empty-stage { display: none; min-height: 180px; place-items: center; color: var(--muted); border: 1px dashed var(--line-bright); font-size: 12px; }
+		.bottomline { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; margin-top: 28px; padding-top: 14px; color: var(--dim); border-top: 1px solid var(--line); font-size: 10px; }
+		.key-hint { display: inline-flex; align-items: center; gap: 7px; }
+		.key { padding: 2px 6px; color: var(--muted); border: 1px solid var(--line-bright); font-size: 9px; }
+		.reset { padding: 5px 0; color: var(--muted); background: none; border: 0; cursor: pointer; font-size: 10px; }
+		.reset:hover { color: var(--mint); }
+		.content.refresh { animation: reveal .32s ease both; }
+		@keyframes reveal { from { opacity: .3; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+		@media (max-width: 760px) {
+			:root { --rail-width: 25vw; }
+			.topbar { min-height: 58px; padding: 0 14px; }
+			.system-state { font-size: 8px; letter-spacing: .08em; }
+			.layout { min-height: calc(100vh - 58px); }
+			.journey { padding: 23px 7px; }
+			.rail-heading { margin-bottom: 30px; }
+			.rail-heading h1 { font-size: 12px; }
+			.rail-caption, .stage-copy, .rail-foot { display: none; }
+			.kicker { gap: 4px; font-size: 7px; letter-spacing: .1em; }
+			.kicker::before { width: 8px; }
+			.stage-list { gap: 20px; }
+			.rail-line { left: 14px; }
+			.stage-button { display: flex; justify-content: center; padding: 4px 0; }
+			.stage-node { width: 29px; height: 29px; flex: 0 0 29px; font-size: 9px; }
+			.content { padding: 22px 14px 35px; }
+			.content-head { flex-direction: column; gap: 16px; }
+			.progress-box { width: 100%; flex-basis: auto; }
+			.progress-label { font-size: 8px; }
+			.progress-number { position: absolute; margin: -2px 0 0 55px; font-size: 17px; }
+			.progress-number small { font-size: 10px; }
+			.progress-track { margin-top: 8px; }
+			.checklist { grid-template-columns: 1fr; gap: 7px; }
+			.task { grid-template-columns: 19px minmax(0, 1fr) auto; gap: 8px; padding: 12px 10px; }
+			.task-title { font-size: 12px; }
+			.task-note { font-size: 9px; }
+		}
+		@media (prefers-reduced-motion: reduce) {
+			*, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+		}
+	</style>
+</head>
+<body>
+	<div class="app">
+		<header class="topbar">
+			<div class="brand"><span class="brand-symbol" aria-hidden="true"><span></span></span>SCRATCHARENA <span style="color:var(--muted);font-weight:500;letter-spacing:.04em">/ FLOW CONTROL</span></div>
+			<div class="system-state"><span class="live-dot" aria-hidden="true"></span>ASSESSMENT SYSTEM ONLINE</div>
+		</header>
+		<main class="layout">
+			<aside class="journey" aria-label="評估流程階段導覽">
+				<div class="rail-heading">
+					<p class="kicker">FLOW / 03</p>
+					<h1>評估程序</h1>
+					<p class="rail-caption">選取階段以檢視子流程</p>
+				</div>
+				<nav class="stage-list" aria-label="流程階段">
+					<div class="rail-line" aria-hidden="true"></div>
+					<button class="stage-button" type="button" data-stage="0" aria-current="step" aria-label="第 1 階段：啟動評估">
+						<span class="stage-node">01</span><span class="stage-copy"><span class="stage-name">啟動評估</span><span class="stage-meta"><span>PHASE 01</span><strong data-stage-count="0">0 / 3</strong></span></span>
+					</button>
+					<button class="stage-button" type="button" data-stage="1" aria-label="第 2 階段：開始執行">
+						<span class="stage-node">02</span><span class="stage-copy"><span class="stage-name">開始執行</span><span class="stage-meta"><span>PHASE 02</span><strong data-stage-count="1">0 / 4</strong></span></span>
+					</button>
+					<button class="stage-button" type="button" data-stage="2" aria-label="第 3 階段：執行結束">
+						<span class="stage-node">03</span><span class="stage-copy"><span class="stage-name">執行結束</span><span class="stage-meta"><span>PHASE 03</span><strong data-stage-count="2">0 / 2</strong></span></span>
+					</button>
+				</nav>
+				<div class="rail-foot">VISUAL WIDTH <span>≤ 25% VIEWPORT</span></div>
+			</aside>
+
+			<section class="content" aria-live="polite" aria-labelledby="phase-title">
+				<header class="content-head">
+					<div class="content-title">
+						<p class="kicker">CURRENT PHASE <span id="phase-number">01</span></p>
+						<h2 id="phase-title">啟動評估</h2>
+						<p id="phase-description">準備評估環境，完成必要的作品與程式規則檢核。</p>
+					</div>
+					<div class="progress-box" role="group" aria-label="整體檢核完成進度">
+						<div class="progress-label"><span>OVERALL CHECKPOINTS</span><span id="progress-percent">0%</span></div>
+						<div class="progress-number"><span id="done-count">0</span><small> / <span id="total-count">9</span></small></div>
+						<div class="progress-track" role="progressbar" aria-label="檢核完成度" aria-valuemin="0" aria-valuemax="9" aria-valuenow="0"><div class="progress-fill"></div></div>
+					</div>
+				</header>
+				<div class="phase-overline"><span id="checklist-title">PHASE 01 / CHECKLIST</span></div>
+				<div class="checklist" id="checklist"></div>
+				<div class="empty-stage">此階段尚無檢核項目</div>
+				<footer class="bottomline">
+					<span class="key-hint"><span class="key">01</span><span class="key">02</span><span class="key">03</span> 點選左側節點切換階段</span>
+					<button class="reset" type="button">重設全部檢核 ↺</button>
+				</footer>
+			</section>
+		</main>
+	</div>
+	<script>
+		const phases = [
+			{
+				title: "啟動評估",
+				description: "準備評估環境，完成必要的作品與程式規則檢核。",
+				items: [
+					["1.1", "作品儲存與分享檢核", "確認作品已儲存，且分享權限可供評估。"],
+					["1.2", "非更動項目檢核", "確認指定不可更動項目維持原狀。"],
+					["1.3", "Player 程式合規檢核", "檢查 Player 程式是否符合挑戰規範。"]
+				]
+			},
+			{
+				title: "開始執行",
+				description: "依照操作規範開始挑戰，並持續確認執行條件。",
+				items: [
+					["2.1", "點擊綠色旗幟開始", "由指定入口啟動作品。"],
+					["2.2", "滑鼠不可離開旗幟", "啟動過程中保持滑鼠位置。"],
+					["2.3", "鍵盤不可有輸入", "執行期間不輸入鍵盤操作。"],
+					["2.4", "Player 每次移動速度 < 10", "逐次確認移動速度低於限制。"]
+				]
+			},
+			{
+				title: "執行結束",
+				description: "根據挑戰結果完成成功判定，並將成果回報伺服器。",
+				items: [
+					["3.1", "挑戰成功判定", "依挑戰條件確認是否成功。"],
+					["3.2", "上傳伺服器回報成果", "提交本次評估結果。"]
+				]
+			}
+		];
+		const completed = new Set();
+		let activeStage = 0;
+		const checklist = document.querySelector("#checklist");
+
+		function renderStage(index) {
+			activeStage = index;
+			const phase = phases[index];
+			document.querySelectorAll(".stage-button").forEach((button) => {
+				if (Number(button.dataset.stage) === index) button.setAttribute("aria-current", "step");
+				else button.removeAttribute("aria-current");
+			});
+			document.querySelector("#phase-number").textContent = String(index + 1).padStart(2, "0");
+			document.querySelector("#phase-title").textContent = phase.title;
+			document.querySelector("#phase-description").textContent = phase.description;
+			document.querySelector("#checklist-title").textContent = `PHASE 0${index + 1} / CHECKLIST`;
+			checklist.replaceChildren(...phase.items.map(([code, title, note]) => {
+				const label = document.createElement("label");
+				label.className = "task";
+				label.innerHTML = `<input type="checkbox" data-code="${code}" aria-label="完成 ${code} ${title}"><span><span class="task-title">${title}</span><span class="task-note">${note}</span></span><span class="task-code">${code}</span>`;
+				label.querySelector("input").checked = completed.has(code);
+				return label;
+			}));
+			const content = document.querySelector(".content");
+			content.classList.remove("refresh");
+			requestAnimationFrame(() => content.classList.add("refresh"));
+		}
+
+		function syncProgress() {
+			const total = phases.reduce((sum, phase) => sum + phase.items.length, 0);
+			const done = completed.size;
+			document.querySelector("#done-count").textContent = done;
+			document.querySelector("#total-count").textContent = total;
+			document.querySelector("#progress-percent").textContent = `${Math.round(done / total * 100)}%`;
+			document.querySelector(".progress-fill").style.width = `${done / total * 100}%`;
+			document.querySelector("[role=progressbar]").setAttribute("aria-valuenow", done);
+			phases.forEach((phase, index) => {
+				const stageDone = phase.items.filter(([code]) => completed.has(code)).length;
+				document.querySelector(`[data-stage-count="${index}"]`).textContent = `${stageDone} / ${phase.items.length}`;
+			});
+		}
+
+		document.querySelectorAll(".stage-button").forEach((button) => {
+			button.addEventListener("click", () => renderStage(Number(button.dataset.stage)));
+		});
+		document.querySelector(".stage-list").addEventListener("keydown", (event) => {
+			if (!["ArrowDown", "ArrowUp"].includes(event.key)) return;
+			event.preventDefault();
+			const next = (activeStage + (event.key === "ArrowDown" ? 1 : -1) + phases.length) % phases.length;
+			const button = document.querySelector(`.stage-button[data-stage="${next}"]`);
+			button.focus();
+			button.click();
+		});
+		document.addEventListener("change", (event) => {
+			if (!event.target.matches("[data-code]")) return;
+			if (event.target.checked) completed.add(event.target.dataset.code);
+			else completed.delete(event.target.dataset.code);
+			syncProgress();
+		});
+		document.querySelector(".reset").addEventListener("click", () => {
+			completed.clear();
+			renderStage(activeStage);
+			syncProgress();
+		});
+		renderStage(0);
+		syncProgress();
+	</script>
+</body>
+</html>

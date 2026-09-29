@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#f4f4ef">
+	<title>ScratchArena｜評估流程視覺化</title>
+	<style>
+		:root {
+			color-scheme: light;
+			--paper: #f4f4ef;
+			--surface: #fff;
+			--ink: #18221e;
+			--muted: #727d76;
+			--line: #dce2da;
+			--green: #2f704b;
+			--green-soft: #e5f1e7;
+			--orange: #e77842;
+			--orange-soft: #fff0e8;
+			--blue: #527eaa;
+			--blue-soft: #eaf1f8;
+			--shadow: 0 16px 42px rgba(27, 43, 34, .08);
+		}
+		* { box-sizing: border-box; }
+		body {
+			margin: 0;
+			min-width: 320px;
+			min-height: 100vh;
+			color: var(--ink);
+			background-color: var(--paper);
+			background-image: radial-gradient(#cdd5ca 0.75px, transparent 0.75px);
+			background-size: 19px 19px;
+			font-family: "Aptos", "Microsoft JhengHei UI", "Noto Sans TC", sans-serif;
+			line-height: 1.55;
+		}
+		button { font: inherit; }
+		.page { max-width: 1180px; margin: 0 auto; padding: 34px 28px 64px; }
+		.topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 58px; }
+		.brand { display: flex; align-items: center; gap: 11px; font-size: 14px; font-weight: 800; letter-spacing: .04em; white-space: nowrap; }
+		.brand-mark { display: grid; width: 30px; height: 30px; place-items: center; color: white; background: var(--green); border-radius: 9px 9px 9px 2px; font-size: 14px; }
+		.top-note { color: var(--muted); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+		.intro { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 30px; margin-bottom: 33px; }
+		.eyebrow { display: flex; align-items: center; gap: 9px; margin: 0 0 12px; color: var(--green); font-size: 12px; font-weight: 800; letter-spacing: .15em; }
+		.eyebrow::before { width: 24px; height: 2px; background: var(--orange); content: ""; }
+		h1 { margin: 0; font-size: clamp(30px, 5vw, 48px); line-height: 1.13; letter-spacing: 0; }
+		.lede { max-width: 560px; margin: 14px 0 0; color: var(--muted); font-size: 15px; }
+		.overall { min-width: 160px; padding: 0 0 5px 20px; border-left: 1px solid var(--line); }
+		.overall-label { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
+		.overall-count { margin-top: 2px; font-size: 25px; font-weight: 800; font-variant-numeric: tabular-nums; }
+		.overall-count span { color: var(--muted); font-size: 14px; font-weight: 500; }
+		.progress-track { height: 5px; margin-top: 10px; overflow: hidden; background: #e0e4dd; border-radius: 5px; }
+		.progress-fill { width: 0; height: 100%; background: var(--green); transition: width .35s ease; }
+		.viewbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 13px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+		.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+		.tab { display: inline-flex; align-items: center; gap: 9px; min-height: 40px; padding: 0 14px; color: var(--muted); background: transparent; border: 1px solid transparent; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 700; transition: .2s ease; }
+		.tab:hover { color: var(--ink); background: rgba(255,255,255,.7); }
+		.tab[aria-selected="true"] { color: var(--ink); background: white; border-color: var(--line); box-shadow: 0 3px 10px rgba(27,43,34,.05); }
+		.tab-num { color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+		.view-hint { color: var(--muted); font-size: 12px; text-align: right; }
+		.canvas { min-height: 430px; padding: 28px 0 0; animation: arrive .35s ease both; }
+		@keyframes arrive { from { opacity: .3; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+		.view-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+		.view-heading h2 { margin: 0; font-size: 18px; }
+		.view-heading p { margin: 0; color: var(--muted); font-size: 12px; }
+		.phase-title { display: flex; align-items: center; gap: 11px; margin: 0 0 13px; font-size: 15px; }
+		.phase-index { display: grid; width: 30px; height: 30px; flex: 0 0 30px; place-items: center; color: white; background: var(--green); border-radius: 50%; font-size: 12px; font-weight: 800; }
+		.phase-index.orange { background: var(--orange); }
+		.phase-index.blue { background: var(--blue); }
+		.subtasks { display: grid; gap: 8px; }
+		.task { display: flex; align-items: flex-start; gap: 12px; min-height: 48px; padding: 12px 14px; background: rgba(255,255,255,.84); border: 1px solid var(--line); border-radius: 4px; cursor: pointer; transition: border-color .18s ease, background .18s ease, transform .18s ease; }
+		.task:hover { border-color: #aab9ab; transform: translateY(-1px); }
+		.task input { width: 16px; height: 16px; flex: 0 0 16px; margin: 2px 0 0; accent-color: var(--green); cursor: pointer; }
+		.task span { font-size: 13px; }
+		.task small { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+		.task:has(input:checked) { color: #66746a; background: #f2f7f2; }
+		.task:has(input:checked) > span { text-decoration: line-through; text-decoration-color: #a8b3aa; }
+		.complete-tag { margin-left: auto; color: var(--green); font-size: 10px; font-weight: 800; white-space: nowrap; }
+		.connector { position: relative; width: 1px; height: 34px; margin: 0 auto; background: var(--line); }
+		.connector::after { position: absolute; right: -3px; bottom: 0; width: 6px; height: 6px; border-right: 1px solid #aeb9af; border-bottom: 1px solid #aeb9af; content: ""; transform: rotate(45deg); }
+
+		/* View 1: connected stage cards */
+		.roadmap { display: grid; grid-template-columns: 1fr 52px 1fr 52px 1fr; align-items: start; }
+		.roadmap-stage { min-width: 0; padding: 18px; background: rgba(255,255,255,.62); border: 1px solid var(--line); border-top: 3px solid var(--green); box-shadow: 0 8px 24px rgba(27,43,34,.035); }
+		.roadmap-stage:nth-of-type(2) { border-top-color: var(--orange); }
+		.roadmap-stage:nth-of-type(3) { border-top-color: var(--blue); }
+		.roadmap .subtasks { margin-left: 7px; padding-left: 15px; border-left: 1px solid var(--line); }
+		.roadmap .task { padding: 10px; }
+		.road-link { display: flex; align-items: center; justify-content: center; height: 45px; color: #a0aaa0; font-size: 22px; }
+		.stage-meta { margin: -5px 0 13px 41px; color: var(--muted); font-size: 11px; }
+		.roadmap-stage .task { min-height: 50px; }
+
+		/* View 2: operational checklist timeline */
+		.timeline { max-width: 790px; margin: 0 auto; }
+		.timeline-stage { display: grid; grid-template-columns: 43px 1fr; gap: 16px; }
+		.timeline-rail { display: flex; flex-direction: column; align-items: center; }
+		.timeline-rail .phase-index { position: relative; z-index: 1; width: 34px; height: 34px; flex-basis: 34px; }
+		.timeline-line { width: 1px; flex: 1; min-height: 30px; background: var(--line); }
+		.timeline-content { padding-bottom: 23px; }
+		.timeline-content .phase-title { margin: 2px 0 12px; }
+		.timeline-content .subtasks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+		.timeline-content .task { min-height: 62px; }
+		.timeline-content .stage-meta { margin: -8px 0 12px 41px; }
+
+		/* View 3: hierarchy tree */
+		.tree { max-width: 920px; margin: 0 auto; }
+		.tree-root { display: flex; justify-content: center; margin-bottom: 24px; }
+		.root-node { padding: 10px 23px; color: white; background: var(--ink); border-radius: 3px; font-size: 13px; font-weight: 800; }
+		.tree-trunk { width: 1px; height: 20px; margin: -24px auto 0; background: #aeb9af; }
+		.tree-branches { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; padding-top: 21px; }
+		.tree-branches::before { position: absolute; top: 0; right: 16.5%; left: 16.5%; height: 1px; background: #aeb9af; content: ""; }
+		.tree-branch { position: relative; min-width: 0; padding: 0 13px 14px; background: rgba(255,255,255,.67); border: 1px solid var(--line); border-radius: 3px; }
+		.tree-branch::before { position: absolute; top: -22px; left: 50%; width: 1px; height: 21px; background: #aeb9af; content: ""; }
+		.tree-branch .phase-title { margin: -1px -13px 5px; padding: 13px; background: white; border-bottom: 1px solid var(--line); }
+		.tree-branch .phase-index { border-radius: 4px; }
+		.tree-branch .stage-meta { margin: 0 0 11px 41px; }
+		.tree-branch .subtasks { gap: 5px; }
+		.tree-branch .task { min-height: 39px; padding: 8px 9px; background: white; }
+		.tree-branch .task span { font-size: 12px; }
+		.tree-branch .task input { margin-top: 1px; }
+		.tree-branch .complete-tag { display: none; }
+		.tree-branch .task small { font-size: 10px; }
+		.footer { display: flex; justify-content: space-between; gap: 18px; margin-top: 25px; padding-top: 15px; color: var(--muted); border-top: 1px solid var(--line); font-size: 11px; }
+		.reset { padding: 0; color: var(--green); background: none; border: 0; cursor: pointer; font-size: 11px; font-weight: 800; }
+		.reset:hover { color: var(--orange); }
+		button:focus-visible, input:focus-visible { outline: 3px solid rgba(82,126,170,.45); outline-offset: 3px; }
+		@media (max-width: 760px) {
+			.page { padding: 23px 18px 42px; }
+			.topbar { margin-bottom: 40px; }
+			.intro { grid-template-columns: 1fr; gap: 18px; }
+			.overall { display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--line); }
+			.overall-label { grid-column: 1; }
+			.overall-count { grid-column: 2; grid-row: 1 / span 2; }
+			.progress-track { grid-column: 1 / -1; }
+			.viewbar { align-items: flex-start; flex-direction: column; gap: 8px; }
+			.view-hint { text-align: left; }
+			.roadmap { grid-template-columns: 1fr; gap: 0; }
+			.road-link { height: 34px; transform: rotate(90deg); }
+			.roadmap-stage { padding: 15px; }
+			.tree-branches { grid-template-columns: 1fr; gap: 27px; padding-top: 0; }
+			.tree-branches::before, .tree-trunk { display: none; }
+			.tree-branch::before { top: -28px; height: 28px; }
+			.tree-branch:first-child::before { display: none; }
+			.tree-root { margin-bottom: 18px; }
+		}
+		@media (max-width: 480px) {
+			.top-note { font-size: 10px; }
+			.tabs { width: 100%; }
+			.tab { flex: 1; justify-content: center; gap: 5px; padding: 0 7px; font-size: 12px; }
+			.tab-num { display: none; }
+			.timeline-stage { grid-template-columns: 34px 1fr; gap: 10px; }
+			.timeline-content .subtasks { grid-template-columns: 1fr; }
+			.timeline-content .task { min-height: 50px; }
+			.footer { flex-direction: column; gap: 7px; }
+		}
+		@media (prefers-reduced-motion: reduce) {
+			*, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+		}
+	</style>
+</head>
+<body>
+	<main class="page">
+		<header class="topbar">
+			<div class="brand"><span class="brand-mark" aria-hidden="true">S</span> SCRATCHARENA <span style="color:var(--muted);font-weight:500">/ 評估工具</span></div>
+			<div class="top-note">Workflow visualization · Demo 01</div>
+		</header>
+
+		<section class="intro" aria-labelledby="page-title">
+			<div>
+				<p class="eyebrow">ASSESSMENT FLOW</p>
+				<h1 id="page-title">評估流程，一眼看懂。</h1>
+				<p class="lede">從啟動評估、開始執行到回報成果。切換不同視圖，看看同一組主流程與檢核項目如何被呈現。</p>
+			</div>
+			<div class="overall" aria-live="polite">
+				<div class="overall-label"><span>整體完成度</span><span id="progress-percent">0%</span></div>
+				<div class="overall-count"><span id="done-count">0</span><span> / <span id="total-count">0</span> 項</span></div>
+				<div class="progress-track" role="progressbar" aria-label="整體檢核完成度" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"><div class="progress-fill"></div></div>
+			</div>
+		</section>
+
+		<nav class="viewbar" aria-label="流程視覺化方式">
+			<div class="tabs" role="tablist" aria-label="選擇視覺化方式">
+				<button class="tab" id="tab-roadmap" role="tab" aria-selected="true" aria-controls="view-roadmap" data-view="roadmap"><span class="tab-num">01</span>階段路徑</button>
+				<button class="tab" id="tab-timeline" role="tab" aria-selected="false" aria-controls="view-timeline" data-view="timeline" tabindex="-1"><span class="tab-num">02</span>執行清單</button>
+				<button class="tab" id="tab-tree" role="tab" aria-selected="false" aria-controls="view-tree" data-view="tree" tabindex="-1"><span class="tab-num">03</span>階層流程圖</button>
+			</div>
+			<div class="view-hint" id="view-hint">適合呈現階段順序與整體進度</div>
+		</nav>
+
+		<section class="canvas" id="view-roadmap" role="tabpanel" aria-labelledby="tab-roadmap">
+			<div class="view-heading"><h2>評估任務路徑</h2><p>由左至右，沿階段推進</p></div>
+			<div class="roadmap" data-flow>
+				<article class="roadmap-stage" data-stage="0">
+					<h3 class="phase-title"><span class="phase-index">1</span>啟動評估</h3>
+					<p class="stage-meta">準備與規則確認</p>
+					<div class="subtasks"></div>
+				</article>
+				<div class="road-link" aria-hidden="true">→</div>
+				<article class="roadmap-stage" data-stage="1">
+					<h3 class="phase-title"><span class="phase-index orange">2</span>開始執行</h3>
+					<p class="stage-meta">操作中即時檢核</p>
+					<div class="subtasks"></div>
+				</article>
+				<div class="road-link" aria-hidden="true">→</div>
+				<article class="roadmap-stage" data-stage="2">
+					<h3 class="phase-title"><span class="phase-index blue">3</span>執行結束</h3>
+					<p class="stage-meta">判定並回報成果</p>
+					<div class="subtasks"></div>
+				</article>
+			</div>
+		</section>
+
+		<section class="canvas" id="view-timeline" role="tabpanel" aria-labelledby="tab-timeline" hidden>
+			<div class="view-heading"><h2>執行檢核清單</h2><p>適合逐項確認與追蹤完成狀態</p></div>
+			<div class="timeline" data-flow>
+				<article class="timeline-stage" data-stage="0"><div class="timeline-rail"><span class="phase-index">1</span><span class="timeline-line"></span></div><div class="timeline-content"><h3 class="phase-title">啟動評估</h3><p class="stage-meta">準備與規則確認</p><div class="subtasks"></div></div></article>
+				<article class="timeline-stage" data-stage="1"><div class="timeline-rail"><span class="phase-index orange">2</span><span class="timeline-line"></span></div><div class="timeline-content"><h3 class="phase-title">開始執行</h3><p class="stage-meta">操作中即時檢核</p><div class="subtasks"></div></div></article>
+				<article class="timeline-stage" data-stage="2"><div class="timeline-rail"><span class="phase-index blue">3</span></div><div class="timeline-content"><h3 class="phase-title">執行結束</h3><p class="stage-meta">判定並回報成果</p><div class="subtasks"></div></div></article>
+			</div>
+		</section>
+
+		<section class="canvas" id="view-tree" role="tabpanel" aria-labelledby="tab-tree" hidden>
+			<div class="view-heading"><h2>流程階層關係</h2><p>適合檢視主流程與子檢核的從屬結構</p></div>
+			<div class="tree" data-flow>
+				<div class="tree-root"><div class="root-node">評估流程</div></div>
+				<div class="tree-trunk" aria-hidden="true"></div>
+				<div class="tree-branches">
+					<article class="tree-branch" data-stage="0"><h3 class="phase-title"><span class="phase-index">1</span>啟動評估</h3><p class="stage-meta">準備與規則確認</p><div class="subtasks"></div></article>
+					<article class="tree-branch" data-stage="1"><h3 class="phase-title"><span class="phase-index orange">2</span>開始執行</h3><p class="stage-meta">操作中即時檢核</p><div class="subtasks"></div></article>
+					<article class="tree-branch" data-stage="2"><h3 class="phase-title"><span class="phase-index blue">3</span>執行結束</h3><p class="stage-meta">判定並回報成果</p><div class="subtasks"></div></article>
+				</div>
+			</div>
+		</section>
+
+		<footer class="footer">
+			<span>檢核狀態會同步顯示於三種視圖</span>
+			<button class="reset" type="button">重設所有檢核 ↺</button>
+		</footer>
+	</main>
+	<script>
+		const workflow = [
+			{ title: "1.1 作品儲存與分享檢核", note: "確認作品已儲存，且分享權限可供評估", id: "1-1" },
+			{ title: "1.2 非更動項目檢核", note: "確認指定不可更動項目維持原狀", id: "1-2" },
+			{ title: "1.3 Player 程式合規檢核", note: "檢查 Player 程式是否符合挑戰規範", id: "1-3" },
+			{ title: "2.1 點擊綠色旗幟開始", note: "由指定入口啟動作品", id: "2-1" },
+			{ title: "2.2 滑鼠不可離開旗幟", note: "啟動過程中保持滑鼠位置", id: "2-2" },
+			{ title: "2.3 鍵盤不可有輸入", note: "執行期間不輸入鍵盤操作", id: "2-3" },
+			{ title: "2.4 Player 每次移動速度 < 10", note: "逐次確認移動速度低於限制", id: "2-4" },
+			{ title: "3.1 挑戰成功判定", note: "依挑戰條件確認是否成功", id: "3-1" },
+			{ title: "3.2 上傳伺服器回報成果", note: "提交本次評估結果", id: "3-2" }
+		];
+		const groups = [[0, 1, 2], [3, 4, 5, 6], [7, 8]];
+		const hints = {
+			roadmap: "適合呈現階段順序與整體進度",
+			timeline: "適合逐項確認與追蹤完成狀態",
+			tree: "適合檢視主流程與子檢核的從屬結構"
+		};
+		const checked = new Set();
+		const makeTask = (item) => {
+			const label = document.createElement("label");
+			label.className = "task";
+			label.innerHTML = `<input type="checkbox" data-task="${item.id}" aria-label="完成：${item.title}"><span>${item.title}<small>${item.note}</small></span><span class="complete-tag" aria-hidden="true">完成</span>`;
+			return label;
+		};
+		document.querySelectorAll("[data-flow]").forEach((flow) => {
+			flow.querySelectorAll("[data-stage]").forEach((stage, index) => {
+				groups[index].forEach((itemIndex) => stage.querySelector(".subtasks").append(makeTask(workflow[itemIndex])));
+			});
+		});
+		function syncChecks() {
+			document.querySelectorAll("[data-task]").forEach((input) => { input.checked = checked.has(input.dataset.task); });
+			const total = workflow.length;
+			const done = checked.size;
+			document.querySelector("#done-count").textContent = done;
+			document.querySelector("#total-count").textContent = total;
+			document.querySelector("#progress-percent").textContent = `${Math.round(done / total * 100)}%`;
+			document.querySelector(".progress-fill").style.width = `${done / total * 100}%`;
+			document.querySelector("[role=progressbar]").setAttribute("aria-valuemax", total);
+			document.querySelector("[role=progressbar]").setAttribute("aria-valuenow", done);
+		}
+		document.addEventListener("change", (event) => {
+			if (!event.target.matches("[data-task]")) return;
+			if (event.target.checked) checked.add(event.target.dataset.task);
+			else checked.delete(event.target.dataset.task);
+			syncChecks();
+		});
+		document.querySelectorAll(".tab").forEach((tab) => {
+			tab.addEventListener("click", () => {
+				document.querySelectorAll(".tab").forEach((other) => {
+					const selected = other === tab;
+					other.setAttribute("aria-selected", String(selected));
+					other.tabIndex = selected ? 0 : -1;
+				});
+				document.querySelectorAll("[role=tabpanel]").forEach((panel) => { panel.hidden = panel.id !== tab.getAttribute("aria-controls"); });
+				document.querySelector("#view-hint").textContent = hints[tab.dataset.view];
+			});
+		});
+		document.querySelector(".tabs").addEventListener("keydown", (event) => {
+			if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+			event.preventDefault();
+			const tabs = [...document.querySelectorAll(".tab")];
+			const current = tabs.indexOf(document.activeElement);
+			tabs[(current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length].focus();
+			tabs[(current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length].click();
+		});
+		document.querySelector(".reset").addEventListener("click", () => { checked.clear(); syncChecks(); });
+		syncChecks();
+	</script>
+</body>
+</html>

@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#080d12">
+	<title>ScratchArena｜展開式評估流程</title>
+	<style>
+		:root {
+			color-scheme: dark;
+			--void: #080d12;
+			--panel: #101820;
+			--panel-high: #16222a;
+			--line: #25353d;
+			--line-hi: #40565e;
+			--text: #edf4ef;
+			--muted: #87989a;
+			--dim: #5c7076;
+			--mint: #78edbc;
+			--mint-dim: #2d9470;
+			--amber: #ffc06e;
+			--ice: #a3d9f2;
+			--rail: clamp(280px, 25vw, 360px);
+		}
+		* { box-sizing: border-box; }
+		body {
+			margin: 0;
+			min-width: 300px;
+			min-height: 100vh;
+			color: var(--text);
+			background-color: var(--void);
+			background-image: linear-gradient(rgba(128,169,172,.028) 1px, transparent 1px), linear-gradient(90deg, rgba(128,169,172,.028) 1px, transparent 1px), radial-gradient(ellipse 55% 55% at 85% 10%, rgba(55,114,111,.13), transparent 72%);
+			background-size: 34px 34px, 34px 34px, auto;
+			font-family: "Aptos", "Microsoft JhengHei UI", "Noto Sans TC", sans-serif;
+			line-height: 1.5;
+		}
+		button { color: inherit; font: inherit; }
+		button:focus-visible, input:focus-visible { outline: 2px solid var(--mint); outline-offset: 3px; }
+		.app { min-height: 100vh; }
+		.topbar { display: flex; min-height: 68px; align-items: center; justify-content: space-between; gap: 18px; padding: 0 30px; background: rgba(8,13,18,.92); border-bottom: 1px solid var(--line); }
+		.brand { display: flex; align-items: center; gap: 11px; font-size: 12px; font-weight: 800; letter-spacing: .12em; white-space: nowrap; }
+		.brand-mark { display: grid; width: 27px; height: 27px; place-items: center; color: var(--mint); border: 1px solid var(--mint-dim); transform: rotate(45deg); }
+		.brand-mark::after { width: 7px; height: 7px; background: var(--mint); box-shadow: 0 0 12px rgba(120,237,188,.7); content: ""; }
+		.system-state { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 10px; letter-spacing: .14em; }
+		.live-dot { width: 7px; height: 7px; background: var(--mint); border-radius: 50%; box-shadow: 0 0 10px var(--mint); animation: pulse 2.2s ease-in-out infinite; }
+		@keyframes pulse { 50% { opacity: .35; box-shadow: 0 0 2px var(--mint); } }
+		.layout { display: grid; min-height: calc(100vh - 68px); grid-template-columns: var(--rail) minmax(0, 1fr); }
+		.left-panel { position: relative; width: var(--rail); min-width: 0; padding: 28px 18px 24px; background: rgba(14,22,29,.93); border-right: 1px solid var(--line); }
+		.left-panel::before { position: absolute; top: 0; right: 0; left: 0; height: 2px; background: linear-gradient(90deg,var(--mint),transparent 80%); content: ""; }
+		.left-heading { margin-bottom: 20px; }
+		.eyebrow { display: flex; align-items: center; gap: 8px; margin: 0 0 7px; color: var(--mint); font-size: 9px; font-weight: 800; letter-spacing: .2em; }
+		.eyebrow::before { width: 14px; height: 1px; background: currentColor; content: ""; }
+		h1 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: .02em; }
+		.left-caption { margin: 5px 0 0; color: var(--muted); font-size: 10px; }
+		.accordion { display: grid; gap: 9px; }
+		.phase { position: relative; min-width: 0; background: rgba(16,24,32,.9); border: 1px solid var(--line); transition: border-color .25s ease, background .25s ease, box-shadow .25s ease; }
+		.phase[ data-open="true"] { background: linear-gradient(145deg, rgba(24,37,44,.98), rgba(14,22,29,.98)); border-color: rgba(120,237,188,.48); box-shadow: 0 0 22px rgba(65,184,139,.08), inset 2px 0 var(--mint); }
+		.phase-trigger { display: grid; width: 100%; grid-template-columns: 34px minmax(0,1fr) 18px; align-items: center; gap: 10px; padding: 12px 11px; text-align: left; background: transparent; border: 0; cursor: pointer; }
+		.phase-number { display: grid; width: 32px; height: 32px; place-items: center; color: var(--muted); background: #111b22; border: 1px solid var(--line-hi); border-radius: 50%; font-size: 10px; font-weight: 800; transition: .25s ease; }
+		.phase[ data-open="true"] .phase-number { color: var(--void); background: var(--mint); border-color: var(--mint); box-shadow: 0 0 16px rgba(120,237,188,.32); }
+		.phase-text { min-width: 0; }
+		.phase-title { display: block; color: var(--muted); font-size: 12px; font-weight: 750; overflow-wrap: anywhere; transition: color .2s ease; }
+		.phase[ data-open="true"] .phase-title { color: var(--text); }
+		.phase-meta { display: flex; justify-content: space-between; gap: 6px; margin-top: 3px; color: var(--dim); font-size: 9px; }
+		.phase-count { color: var(--mint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+		.chevron { width: 8px; height: 8px; border-right: 1px solid var(--muted); border-bottom: 1px solid var(--muted); transform: rotate(45deg) translate(-2px,-2px); transition: transform .28s ease, border-color .2s ease; }
+		.phase[ data-open="true"] .chevron { border-color: var(--mint); transform: rotate(225deg) translate(-1px,-1px); }
+		.details-clip { display: grid; grid-template-rows: 0fr; opacity: .3; transition: grid-template-rows .38s cubic-bezier(.2,.8,.2,1), opacity .25s ease; }
+		.phase[ data-open="true"] .details-clip { grid-template-rows: 1fr; opacity: 1; }
+		.details-inner { min-height: 0; overflow: hidden; }
+		.task-list { display: grid; gap: 5px; padding: 0 10px 11px 15px; margin-left: 27px; border-left: 1px solid var(--line-hi); }
+		.task { display: grid; min-width: 0; grid-template-columns: 15px minmax(0,1fr); align-items: start; gap: 8px; padding: 7px 6px; border: 1px solid transparent; cursor: pointer; transition: background .18s ease, border-color .18s ease, transform .18s ease; }
+		.task:hover { background: rgba(120,237,188,.045); border-color: rgba(120,237,188,.16); transform: translateX(2px); }
+		.task input { width: 13px; height: 13px; margin: 2px 0 0; accent-color: var(--mint); cursor: pointer; }
+		.task-copy { min-width: 0; }
+		.task-name { display: block; color: #dce6e1; font-size: 10px; font-weight: 650; overflow-wrap: anywhere; }
+		.task-note { display: block; margin-top: 2px; color: var(--dim); font-size: 9px; overflow-wrap: anywhere; }
+		.task:has(input:checked) .task-name { color: #9bb9aa; text-decoration: line-through; text-decoration-color: #547664; }
+		.left-footer { margin-top: 17px; padding-top: 12px; color: var(--dim); border-top: 1px solid var(--line); font-size: 9px; letter-spacing: .07em; }
+		.left-footer strong { color: var(--mint); font-weight: 600; }
+		.main-panel { position: relative; min-width: 0; padding: 42px clamp(20px,5vw,76px) 44px; overflow: hidden; }
+		.main-panel::before { position: absolute; top: 45px; right: 7%; width: min(34vw, 420px); aspect-ratio: 1; border: 1px solid rgba(120,237,188,.07); border-radius: 50%; box-shadow: 0 0 0 34px rgba(120,237,188,.018), 0 0 0 68px rgba(120,237,188,.014), 0 0 0 102px rgba(120,237,188,.01); content: ""; pointer-events: none; }
+		.main-panel::after { position: absolute; top: 0; right: 18%; width: 1px; height: 100%; background: linear-gradient(transparent,rgba(120,237,188,.05),transparent); content: ""; pointer-events: none; }
+		.main-inner { position: relative; z-index: 1; max-width: 920px; margin: 0 auto; }
+		.content-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+		.current .eyebrow { color: var(--amber); }
+		.current h2 { margin: 7px 0 7px; font-size: clamp(27px,4vw,44px); line-height: 1.12; letter-spacing: 0; }
+		.current p:last-child { max-width: 530px; margin: 0; color: var(--muted); font-size: 13px; }
+		.progress-box { width: 190px; flex: 0 0 190px; padding: 13px; background: rgba(17,27,34,.86); border: 1px solid var(--line); }
+		.progress-label { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 9px; letter-spacing: .08em; }
+		.progress-total { margin-top: 4px; font-size: 24px; font-weight: 750; font-variant-numeric: tabular-nums; }
+		.progress-total small { color: var(--dim); font-size: 12px; font-weight: 500; }
+		.progress-track { height: 3px; margin-top: 9px; background: #26363d; }
+		.progress-fill { width: 0; height: 100%; background: var(--mint); box-shadow: 0 0 10px rgba(120,237,188,.6); transition: width .4s ease; }
+		.readout { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin-top: 25px; }
+		.readout-item { min-width: 0; padding: 13px 15px; background: rgba(16,24,32,.76); border: 1px solid var(--line); }
+		.readout-label { display: block; color: var(--dim); font-size: 9px; letter-spacing: .1em; }
+		.readout-value { display: flex; align-items: baseline; gap: 7px; margin-top: 4px; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+		.readout-value small { color: var(--muted); font-size: 10px; font-weight: 500; }
+		.signal { display: flex; height: 124px; align-items: end; gap: 5px; margin-top: 24px; padding: 14px 16px; background: linear-gradient(180deg,rgba(17,27,34,.54),rgba(13,20,26,.76)); border: 1px solid var(--line); overflow: hidden; }
+		.signal-bar { width: 100%; height: var(--bar-height); min-width: 3px; background: linear-gradient(0deg,rgba(67,160,127,.18),rgba(120,237,188,.78)); transform-origin: bottom; animation: equalize var(--duration) ease-in-out infinite alternate; opacity: .62; }
+		.signal-bar:nth-child(3n) { background: linear-gradient(0deg,rgba(90,148,174,.16),rgba(163,217,242,.68)); animation-delay: -.7s; }
+		@keyframes equalize { to { transform: scaleY(.25); opacity: .28; } }
+		.map-heading { display: flex; align-items: center; gap: 10px; margin: 28px 0 13px; color: var(--muted); font-size: 10px; letter-spacing: .14em; }
+		.map-heading::after { height: 1px; flex: 1; background: var(--line); content: ""; }
+		.phase-map { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+		.map-phase { position: relative; min-width: 0; padding: 13px 14px; background: rgba(16,24,32,.74); border: 1px solid var(--line); transition: border-color .25s ease, background .25s ease; }
+		.map-phase.active { background: rgba(21,37,40,.82); border-color: rgba(120,237,188,.42); }
+		.map-phase::before { position: absolute; top: -1px; left: 13px; width: 22px; height: 1px; background: var(--line-hi); content: ""; }
+		.map-phase.active::before { background: var(--mint); box-shadow: 0 0 8px var(--mint); }
+		.map-number { color: var(--mint); font-size: 9px; letter-spacing: .1em; }
+		.map-title { margin-top: 5px; font-size: 12px; font-weight: 700; overflow-wrap: anywhere; }
+		.map-progress { display: flex; justify-content: space-between; gap: 5px; margin-top: 10px; color: var(--dim); font-size: 9px; }
+		.map-meter { height: 2px; margin-top: 5px; background: #27363b; }
+		.map-meter span { display: block; width: 0; height: 100%; background: var(--mint); transition: width .35s ease; }
+		.bottomline { display: flex; justify-content: space-between; gap: 14px; margin-top: 25px; padding-top: 13px; color: var(--dim); border-top: 1px solid var(--line); font-size: 10px; }
+		.reset { padding: 0; color: var(--muted); background: transparent; border: 0; cursor: pointer; font-size: 10px; }
+		.reset:hover { color: var(--mint); }
+		.current.flash { animation: arrive .32s ease both; }
+		@keyframes arrive { from { opacity: .35; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+		@media (max-width: 760px) {
+			:root { --rail: minmax(0,1fr); }
+			.topbar { min-height: 58px; padding: 0 15px; }
+			.system-state { font-size: 8px; letter-spacing: .07em; }
+			.layout { grid-template-columns: minmax(0,1fr); }
+			.left-panel { width: 100%; padding: 21px 16px 18px; border-right: 0; border-bottom: 1px solid var(--line); }
+			.left-heading { margin-bottom: 13px; }
+			.left-heading h1 { font-size: 15px; }
+			.accordion { grid-template-columns: repeat(3,minmax(0,1fr)); align-items: start; gap: 7px; }
+			.phase-trigger { grid-template-columns: 27px minmax(0,1fr) 10px; gap: 6px; padding: 9px 6px; }
+			.phase-number { width: 25px; height: 25px; font-size: 8px; }
+			.phase-title { font-size: 10px; }
+			.phase-meta { font-size: 8px; }
+			.phase-meta > span:first-child { display: none; }
+			.chevron { width: 6px; height: 6px; }
+			.task-list { gap: 4px; padding: 0 5px 8px 8px; margin-left: 9px; }
+			.task { grid-template-columns: 13px minmax(0,1fr); gap: 5px; padding: 6px 2px; }
+			.task input { width: 12px; height: 12px; }
+			.task-name { font-size: 9px; }
+			.task-note { font-size: 8px; }
+			.left-footer { margin-top: 11px; padding-top: 9px; }
+			.main-panel { padding: 25px 16px 32px; }
+			.main-panel::before { top: 40px; right: -8%; width: 45vw; }
+			.content-head { align-items: stretch; flex-direction: column; gap: 16px; }
+			.progress-box { width: 100%; flex-basis: auto; }
+			.readout { gap: 6px; }
+			.readout-item { padding: 10px; }
+			.readout-value { font-size: 17px; }
+			.signal { height: 90px; }
+			.phase-map { gap: 6px; }
+			.map-phase { padding: 10px 8px; }
+			.map-title { font-size: 10px; }
+			.bottomline { font-size: 9px; }
+		}
+		@media (max-width: 560px) {
+			.accordion { grid-template-columns: 1fr; }
+			.phase-trigger { grid-template-columns: 32px minmax(0,1fr) 16px; gap: 9px; padding: 9px 10px; }
+			.phase-number { width: 29px; height: 29px; font-size: 9px; }
+			.phase-title { font-size: 11px; }
+			.phase-meta > span:first-child { display: inline; }
+			.task-list { padding-left: 12px; margin-left: 22px; }
+			.task { grid-template-columns: 15px minmax(0,1fr); gap: 7px; padding: 7px 5px; }
+			.task input { width: 13px; height: 13px; }
+			.task-name { font-size: 11px; }
+			.task-note { font-size: 10px; }
+			.phase-map { grid-template-columns: 1fr; }
+			.map-phase { display: grid; grid-template-columns: 46px minmax(0,1fr) auto; align-items: center; gap: 7px; }
+			.map-title { margin-top: 0; }
+			.map-progress { margin-top: 0; }
+			.map-meter { grid-column: 1 / -1; margin-top: 1px; }
+		}
+		@media (prefers-reduced-motion: reduce) {
+			*, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+		}
+	</style>
+</head>
+<body>
+	<div class="app">
+		<header class="topbar">
+			<div class="brand"><span class="brand-mark" aria-hidden="true"></span>SCRATCHARENA <span style="color:var(--muted);font-weight:500;letter-spacing:.04em">/ FLOW CONTROL</span></div>
+			<div class="system-state"><span class="live-dot" aria-hidden="true"></span>ASSESSMENT SYSTEM ONLINE</div>
+		</header>
+		<main class="layout">
+			<aside class="left-panel" aria-label="完整評估流程">
+				<header class="left-heading">
+					<p class="eyebrow">FLOW / 03</p>
+					<h1>評估流程</h1>
+					<p class="left-caption">階段與任務集中檢視</p>
+				</header>
+				<nav class="accordion" aria-label="流程階段手風琴">
+					<section class="phase" data-phase="0" data-open="true">
+						<button class="phase-trigger" id="trigger-0" type="button" aria-expanded="true" aria-controls="details-0">
+							<span class="phase-number">01</span>
+							<span class="phase-text"><span class="phase-title">啟動評估</span><span class="phase-meta"><span>PHASE 01</span><span class="phase-count" data-count="0">0 / 3</span></span></span>
+							<span class="chevron" aria-hidden="true"></span>
+						</button>
+						<div class="details-clip" id="details-0" role="region" aria-labelledby="trigger-0"><div class="details-inner"><div class="task-list" data-task-list="0"></div></div></div>
+					</section>
+					<section class="phase" data-phase="1" data-open="false">
+						<button class="phase-trigger" id="trigger-1" type="button" aria-expanded="false" aria-controls="details-1">
+							<span class="phase-number">02</span>
+							<span class="phase-text"><span class="phase-title">開始執行</span><span class="phase-meta"><span>PHASE 02</span><span class="phase-count" data-count="1">0 / 4</span></span></span>
+							<span class="chevron" aria-hidden="true"></span>
+						</button>
+						<div class="details-clip" id="details-1" role="region" aria-labelledby="trigger-1" inert><div class="details-inner"><div class="task-list" data-task-list="1"></div></div></div>
+					</section>
+					<section class="phase" data-phase="2" data-open="false">
+						<button class="phase-trigger" id="trigger-2" type="button" aria-expanded="false" aria-controls="details-2">
+							<span class="phase-number">03</span>
+							<span class="phase-text"><span class="phase-title">執行結束</span><span class="phase-meta"><span>PHASE 03</span><span class="phase-count" data-count="2">0 / 2</span></span></span>
+							<span class="chevron" aria-hidden="true"></span>
+						</button>
+						<div class="details-clip" id="details-2" role="region" aria-labelledby="trigger-2" inert><div class="details-inner"><div class="task-list" data-task-list="2"></div></div></div>
+					</section>
+				</nav>
+				<footer class="left-footer">FLOW MAP <strong>· 3 PHASES / 9 TASKS</strong></footer>
+			</aside>
+
+			<section class="main-panel" aria-live="polite" aria-labelledby="current-title">
+				<div class="main-inner">
+					<header class="content-head">
+						<div class="current">
+							<p class="eyebrow">ACTIVE PHASE <span id="active-number">01</span></p>
+							<h2 id="current-title">啟動評估</h2>
+							<p id="current-description">準備評估環境，完成作品與程式規則檢核。</p>
+						</div>
+						<div class="progress-box" role="group" aria-label="整體任務完成進度">
+							<div class="progress-label"><span>OVERALL PROGRESS</span><span id="progress-percent">0%</span></div>
+							<div class="progress-total"><span id="done-total">0</span><small> / <span id="all-total">9</span> TASKS</small></div>
+							<div class="progress-track" role="progressbar" aria-label="整體任務完成度" aria-valuemin="0" aria-valuemax="9" aria-valuenow="0"><div class="progress-fill"></div></div>
+						</div>
+					</header>
+					<div class="readout" aria-label="整體流程摘要">
+						<div class="readout-item"><span class="readout-label">STAGES</span><span class="readout-value">03 <small>PHASES</small></span></div>
+						<div class="readout-item"><span class="readout-label">CHECKPOINTS</span><span class="readout-value"><span id="summary-done">0</span><small> / 9</small></span></div>
+						<div class="readout-item"><span class="readout-label">ACTIVE</span><span class="readout-value"><span id="summary-phase">01</span><small>PHASE</small></span></div>
+					</div>
+					<div class="signal" aria-hidden="true"></div>
+					<div class="map-heading">PHASE STATUS</div>
+					<div class="phase-map">
+						<article class="map-phase active" data-map="0"><span class="map-number">PHASE 01</span><div class="map-title">啟動評估</div><div class="map-progress"><span>CHECKED</span><span data-map-count="0">0 / 3</span></div><div class="map-meter"><span data-meter="0"></span></div></article>
+						<article class="map-phase" data-map="1"><span class="map-number">PHASE 02</span><div class="map-title">開始執行</div><div class="map-progress"><span>CHECKED</span><span data-map-count="1">0 / 4</span></div><div class="map-meter"><span data-meter="1"></span></div></article>
+						<article class="map-phase" data-map="2"><span class="map-number">PHASE 03</span><div class="map-title">執行結束</div><div class="map-progress"><span>CHECKED</span><span data-map-count="2">0 / 2</span></div><div class="map-meter"><span data-meter="2"></span></div></article>
+					</div>
+					<footer class="bottomline"><span>LIVE WORKFLOW MONITOR</span><button class="reset" type="button">重設所有檢核 ↺</button></footer>
+				</div>
+			</section>
+		</main>
+	</div>
+	<script>
+		const phases = [
+			{
+				title: "啟動評估",
+				description: "準備評估環境，完成作品與程式規則檢核。",
+				items: [
+					["1.1", "作品儲存與分享檢核", "確認作品已儲存，且分享權限可供評估。"],
+					["1.2", "非更動項目檢核", "確認指定不可更動項目維持原狀。"],
+					["1.3", "Player 程式合規檢核", "檢查 Player 程式是否符合挑戰規範。"]
+				]
+			},
+			{
+				title: "開始執行",
+				description: "依照操作規範開始挑戰，並持續確認執行條件。",
+				items: [
+					["2.1", "點擊綠色旗幟開始", "由指定入口啟動作品。"],
+					["2.2", "滑鼠不可離開旗幟", "啟動過程中保持滑鼠位置。"],
+					["2.3", "鍵盤不可有輸入", "執行期間不輸入鍵盤操作。"],
+					["2.4", "Player 每次移動速度 < 10", "逐次確認移動速度低於限制。"]
+				]
+			},
+			{
+				title: "執行結束",
+				description: "完成挑戰結果判定，並將評估成果回報伺服器。",
+				items: [
+					["3.1", "挑戰成功判定", "依挑戰條件確認是否成功。"],
+					["3.2", "上傳伺服器回報成果", "提交本次評估結果。"]
+				]
+			}
+		];
+		const complete = new Set();
+		let openPhase = 0;
+		const signal = document.querySelector(".signal");
+		for (let index = 0; index < 28; index += 1) {
+			const bar = document.createElement("span");
+			bar.className = "signal-bar";
+			bar.style.setProperty("--bar-height", `${18 + ((index * 37) % 74)}%`);
+			bar.style.setProperty("--duration", `${1.2 + (index % 7) * 0.19}s`);
+			signal.append(bar);
+		}
+		phases.forEach((phase, phaseIndex) => {
+			const list = document.querySelector(`[data-task-list="${phaseIndex}"]`);
+			phase.items.forEach(([code, title, note]) => {
+				const label = document.createElement("label");
+				label.className = "task";
+				label.innerHTML = `<input type="checkbox" data-task="${code}" aria-label="完成 ${code} ${title}"><span class="task-copy"><span class="task-name">${code} ${title}</span><span class="task-note">${note}</span></span>`;
+				list.append(label);
+			});
+		});
+
+		function setOpenPhase(index) {
+			openPhase = index;
+			phases.forEach((phase, phaseIndex) => {
+				const section = document.querySelector(`.phase[data-phase="${phaseIndex}"]`);
+				const trigger = section.querySelector(".phase-trigger");
+				const details = section.querySelector(".details-clip");
+				const isOpen = phaseIndex === index;
+				section.dataset.open = String(isOpen);
+				trigger.setAttribute("aria-expanded", String(isOpen));
+				details.toggleAttribute("inert", !isOpen);
+			});
+			if (index < 0) {
+				document.querySelector("#active-number").textContent = "--";
+				document.querySelector("#summary-phase").textContent = "--";
+				document.querySelector("#current-title").textContent = "選擇評估階段";
+				document.querySelector("#current-description").textContent = "在左側展開任一階段，即可檢視所有檢核任務。";
+				document.querySelectorAll(".map-phase").forEach((card) => card.classList.remove("active"));
+				return;
+			}
+			document.querySelector("#active-number").textContent = String(index + 1).padStart(2, "0");
+			document.querySelector("#summary-phase").textContent = String(index + 1).padStart(2, "0");
+			document.querySelector("#current-title").textContent = phases[index].title;
+			document.querySelector("#current-description").textContent = phases[index].description;
+			document.querySelectorAll(".map-phase").forEach((card, cardIndex) => card.classList.toggle("active", cardIndex === index));
+			const current = document.querySelector(".current");
+			current.classList.remove("flash");
+			requestAnimationFrame(() => current.classList.add("flash"));
+		}
+
+		function syncProgress() {
+			const total = phases.reduce((sum, phase) => sum + phase.items.length, 0);
+			const done = complete.size;
+			document.querySelector("#done-total").textContent = done;
+			document.querySelector("#summary-done").textContent = done;
+			document.querySelector("#all-total").textContent = total;
+			document.querySelector("#progress-percent").textContent = `${Math.round(done / total * 100)}%`;
+			document.querySelector(".progress-fill").style.width = `${done / total * 100}%`;
+			document.querySelector("[role=progressbar]").setAttribute("aria-valuemax", total);
+			document.querySelector("[role=progressbar]").setAttribute("aria-valuenow", done);
+			phases.forEach((phase, index) => {
+				const phaseDone = phase.items.filter(([code]) => complete.has(code)).length;
+				const count = `${phaseDone} / ${phase.items.length}`;
+				document.querySelector(`[data-count="${index}"]`).textContent = count;
+				document.querySelector(`[data-map-count="${index}"]`).textContent = count;
+				document.querySelector(`[data-meter="${index}"]`).style.width = `${phaseDone / phase.items.length * 100}%`;
+			});
+		}
+
+		document.querySelectorAll(".phase-trigger").forEach((trigger) => {
+			trigger.addEventListener("click", () => {
+				const index = Number(trigger.closest(".phase").dataset.phase);
+				setOpenPhase(openPhase === index ? -1 : index);
+			});
+		});
+		document.addEventListener("change", (event) => {
+			if (!event.target.matches("[data-task]")) return;
+			if (event.target.checked) complete.add(event.target.dataset.task);
+			else complete.delete(event.target.dataset.task);
+			syncProgress();
+		});
+		document.querySelector(".reset").addEventListener("click", () => {
+			complete.clear();
+			document.querySelectorAll("[data-task]").forEach((input) => { input.checked = false; });
+			syncProgress();
+		});
+		syncProgress();
+	</script>
+</body>
+</html>
