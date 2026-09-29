@@ -180,33 +180,153 @@
                     }
                     #${overlayId} .constraint-title,
                     #${overlayId} .workflow-title {
-                        margin: 0 0 6px;
+                        margin: 0 0 8px;
                         font-size: 11px;
-                        color: #c3cbe3;
+                        color: #9eafb2;
+                        letter-spacing: 0.08em;
                     }
-                    #${overlayId} .constraint-list,
-                    #${overlayId} .workflow-list {
+                    #${overlayId} .constraint-list {
                         list-style: none;
                         padding: 0;
                         margin: 0;
+                    }
+                    #${overlayId} .workflow-list {
+                        display: grid;
+                        gap: 6px;
+                        list-style: none;
+                        padding: 0;
+                        margin: 0;
+                    }
+                    #${overlayId} .workflow-group {
+                        min-width: 0;
+                        overflow: hidden;
+                        background: rgba(17, 27, 34, 0.82);
+                        border: 1px solid rgba(130, 163, 166, 0.18);
+                        transition: border-color 0.22s ease, background 0.22s ease, box-shadow 0.22s ease;
+                    }
+                    #${overlayId} .workflow-group.expanded {
+                        background: linear-gradient(145deg, rgba(24, 39, 44, 0.95), rgba(14, 22, 29, 0.96));
+                        border-color: rgba(124, 242, 167, 0.45);
+                        box-shadow: inset 2px 0 rgba(124, 242, 167, 0.9), 0 0 18px rgba(65, 184, 139, 0.07);
+                    }
+                    #${overlayId} .workflow-stage-toggle {
+                        display: grid;
+                        width: 100%;
+                        min-width: 0;
+                        grid-template-columns: 25px minmax(0, 1fr) 12px;
+                        align-items: center;
+                        gap: 8px;
+                        padding: 8px 9px;
+                        color: #e7efeb;
+                        text-align: left;
+                        background: transparent;
+                        border: 0;
+                        cursor: pointer;
+                        font: inherit;
+                    }
+                    #${overlayId} .workflow-stage-toggle:focus-visible {
+                        outline: 2px solid #7cf2a7;
+                        outline-offset: -2px;
+                    }
+                    #${overlayId} .workflow-icon {
+                        display: grid;
+                        width: 23px;
+                        height: 23px;
+                        flex-shrink: 0;
+                        place-items: center;
+                        color: #f9d56e;
+                        background: rgba(249, 213, 110, 0.08);
+                        border: 1px solid rgba(249, 213, 110, 0.2);
+                        border-radius: 50%;
+                        font-size: 11px;
+                        line-height: 1;
+                    }
+                    #${overlayId} .workflow-group.pass .workflow-icon {
+                        color: #7cf2a7;
+                        background: rgba(124, 242, 167, 0.1);
+                        border-color: rgba(124, 242, 167, 0.3);
+                    }
+                    #${overlayId} .workflow-group.fail .workflow-icon {
+                        color: #ff8c94;
+                        background: rgba(255, 140, 148, 0.1);
+                        border-color: rgba(255, 140, 148, 0.28);
+                    }
+                    #${overlayId} .workflow-stage-copy {
+                        display: flex;
+                        min-width: 0;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 5px;
+                    }
+                    #${overlayId} .workflow-stage-name {
+                        min-width: 0;
+                        overflow-wrap: anywhere;
+                        font-size: 11px;
+                        font-weight: 700;
+                        line-height: 1.35;
+                    }
+                    #${overlayId} .workflow-stage-status {
+                        flex-shrink: 0;
+                        color: #9aaeb0;
+                        font-size: 9px;
+                        white-space: nowrap;
+                    }
+                    #${overlayId} .workflow-group.pass .workflow-stage-status { color: #7cf2a7; }
+                    #${overlayId} .workflow-group.fail .workflow-stage-status { color: #ff8c94; }
+                    #${overlayId} .workflow-chevron {
+                        width: 7px;
+                        height: 7px;
+                        border-right: 1px solid #82969a;
+                        border-bottom: 1px solid #82969a;
+                        transform: rotate(45deg) translate(-1px, -1px);
+                        transition: transform 0.24s ease, border-color 0.2s ease;
+                    }
+                    #${overlayId} .workflow-group.expanded .workflow-chevron {
+                        border-color: #7cf2a7;
+                        transform: rotate(225deg) translate(-1px, -1px);
+                    }
+                    #${overlayId} .workflow-details {
+                        display: grid;
+                        grid-template-rows: 0fr;
+                        opacity: 0.35;
+                        transition: grid-template-rows 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.22s ease;
+                    }
+                    #${overlayId} .workflow-group.expanded .workflow-details {
+                        grid-template-rows: 1fr;
+                        opacity: 1;
+                    }
+                    #${overlayId} .workflow-details-inner {
+                        min-height: 0;
+                        overflow: hidden;
+                    }
+                    #${overlayId} .workflow-sublist {
+                        display: grid;
+                        gap: 3px;
+                        list-style: none;
+                        padding: 2px 8px 8px 11px;
+                        margin: 0 8px 8px 20px;
+                        border-left: 1px solid rgba(130, 163, 166, 0.26);
                     }
                     #${overlayId} .constraint-item,
                     #${overlayId} .workflow-step {
                         display: flex;
                         align-items: flex-start;
                         gap: 8px;
-                        margin: 4px 0;
+                        min-width: 0;
+                        margin: 0;
                         color: #d7d7e0;
-                        font-size: 11px;
+                        font-size: 10px;
                         line-height: 1.4;
                     }
                     #${overlayId} .constraint-icon,
-                    #${overlayId} .workflow-icon {
+                    #${overlayId} .workflow-step .workflow-icon {
                         width: 18px;
-                        flex-shrink: 0;
+                        height: 18px;
+                        flex: 0 0 18px;
+                        border-radius: 50%;
                         text-align: center;
                         font-size: 12px;
-                        line-height: 1.3;
+                        line-height: 1;
                     }
                     #${overlayId} .constraint-item.pass .constraint-icon,
                     #${overlayId} .workflow-step.pass .workflow-icon {
@@ -231,20 +351,18 @@
                         background: rgba(124, 242, 167, 0.06);
                     }
                     #${overlayId} .workflow-status {
-                        width: 90%;
+                        width: 100%;
+                        max-width: 100%;
+                        min-width: 0;
+                        box-sizing: border-box;
                         margin: 6px 0 8px;
                         padding: 8px 10px;
-                        background: linear-gradient(135deg, rgba(90, 201, 125, 0.22), rgba(90, 201, 125, 0.1));
-                        border: 1px solid rgba(90, 201, 125, 0.4);
-                        border-radius: 10px;
-                        color: #edf7f0;
+                        background: linear-gradient(135deg, rgba(90, 201, 125, 0.16), rgba(17, 27, 34, 0.85));
+                        border: 1px solid rgba(124, 242, 167, 0.3);
+                        border-radius: 3px;
+                        color: #dcebe2;
                         font-weight: 700;
                         font-size: 11px;
-                    }
-                    #${overlayId} .workflow-sublist {
-                        margin-left: 18px;
-                        padding-left: 0;
-                        list-style: none;
                     }
                     #${overlayId} .comparison-box {
                         margin-top: 14px;
@@ -365,6 +483,7 @@
             let remixComparison = null;
             let remixComparisonStatus = 'unknown';
             let evaluationRunId = 0;
+            let expandedWorkflowStage = 0;
 
             function getProjectIdFromUrl() {
                 const match = location.href.match(/projects\/(\d+)/) || location.pathname.match(/projects\/(\d+)/);
@@ -997,17 +1116,29 @@
                         <div class="workflow-status">${evaluationPrompt}</div>
                     </div>
                     <ul class="workflow-list">
-                        ${workflow.map(group => `
-                            <li class="workflow-step ${group.status}">
-                                <span class="workflow-icon">${group.status === 'pass' ? '✓' : group.status === 'fail' ? '✕' : group.status === 'active' ? '→' : '·'}</span>
-                                <span>
-                                    <strong>${group.label}</strong>
-                                    <ul class="workflow-sublist">
-                                        ${group.children.map(child => renderWorkflowSubStep(child.label, child.status, child.sub)).join('')}
-                                    </ul>
-                                </span>
-                            </li>
-                        `).join('')}
+                        ${workflow.map((group, index) => {
+                            const expanded = expandedWorkflowStage === index;
+                            const icon = group.status === 'pass' ? '✓' : group.status === 'fail' ? '✕' : group.status === 'active' ? '→' : '·';
+                            return `
+                                <li class="workflow-group ${group.status}${expanded ? ' expanded' : ''}">
+                                    <button class="workflow-stage-toggle" type="button" data-workflow-stage="${index}" aria-expanded="${expanded}" aria-controls="workflow-details-${index}">
+                                        <span class="workflow-icon" aria-hidden="true">${icon}</span>
+                                        <span class="workflow-stage-copy">
+                                            <span class="workflow-stage-name">${group.label}</span>
+                                            <span class="workflow-stage-status">${getWorkflowStatusLabel(group.status)}</span>
+                                        </span>
+                                        <span class="workflow-chevron" aria-hidden="true"></span>
+                                    </button>
+                                    <div class="workflow-details" id="workflow-details-${index}" role="region" aria-label="${group.label}子流程"${expanded ? '' : ' inert'}>
+                                        <div class="workflow-details-inner">
+                                            <ul class="workflow-sublist">
+                                                ${group.children.map(child => renderWorkflowSubStep(child.label, child.status, child.sub)).join('')}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </li>
+                            `;
+                        }).join('')}
                     </ul>
                 `;
             }
@@ -1082,6 +1213,14 @@
             const overlay = ensureOverlay();
             const overlayBody = overlay.querySelector('#scratch-arena-info-body');
             let executionTimer = null;
+
+            overlayBody.addEventListener('click', event => {
+                const toggle = event.target.closest('.workflow-stage-toggle');
+                if (!toggle) return;
+                const stage = Number(toggle.dataset.workflowStage);
+                expandedWorkflowStage = expandedWorkflowStage === stage ? -1 : stage;
+                refreshOverlay();
+            });
 
             function resetEvaluationWorkflow() {
                 const wasActive = evaluationHoverStartedAt !== null || workflowState.evaluationStarted || workflowState.greenFlagStarted;
