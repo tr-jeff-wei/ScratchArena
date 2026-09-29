@@ -208,6 +208,12 @@
                         background: linear-gradient(145deg, rgba(24, 39, 44, 0.95), rgba(14, 22, 29, 0.96));
                         border-color: rgba(124, 242, 167, 0.45);
                         box-shadow: inset 2px 0 rgba(124, 242, 167, 0.9), 0 0 18px rgba(65, 184, 139, 0.07);
+                        animation: workflowPhasePulse 0.62s ease-out;
+                    }
+                    @keyframes workflowPhasePulse {
+                        0% { box-shadow: inset 2px 0 rgba(124, 242, 167, 0.9), 0 0 0 rgba(65, 184, 139, 0); }
+                        45% { box-shadow: inset 3px 0 #7cf2a7, 0 0 24px rgba(65, 184, 139, 0.28); }
+                        100% { box-shadow: inset 2px 0 rgba(124, 242, 167, 0.9), 0 0 18px rgba(65, 184, 139, 0.07); }
                     }
                     #${overlayId} .workflow-stage-toggle {
                         display: grid;
@@ -288,8 +294,8 @@
                     #${overlayId} .workflow-details {
                         display: grid;
                         grid-template-rows: 0fr;
-                        opacity: 0.35;
-                        transition: grid-template-rows 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.22s ease;
+                        opacity: 0;
+                        transition: grid-template-rows 0.48s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
                     }
                     #${overlayId} .workflow-group.expanded .workflow-details {
                         grid-template-rows: 1fr;
@@ -298,6 +304,13 @@
                     #${overlayId} .workflow-details-inner {
                         min-height: 0;
                         overflow: hidden;
+                        transform: translateY(-12px);
+                        filter: blur(2px);
+                        transition: transform 0.42s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s ease;
+                    }
+                    #${overlayId} .workflow-group.expanded .workflow-details-inner {
+                        transform: translateY(0);
+                        filter: blur(0);
                     }
                     #${overlayId} .workflow-sublist {
                         display: grid;
@@ -350,7 +363,27 @@
                         padding-left: 6px;
                         background: rgba(124, 242, 167, 0.06);
                     }
+                    #${overlayId} .workflow-group.expanded .workflow-step {
+                        animation: workflowStepEnter 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
+                    }
+                    #${overlayId} .workflow-group.expanded .workflow-step:nth-child(2) { animation-delay: 0.06s; }
+                    #${overlayId} .workflow-group.expanded .workflow-step:nth-child(3) { animation-delay: 0.12s; }
+                    #${overlayId} .workflow-group.expanded .workflow-step:nth-child(4) { animation-delay: 0.18s; }
+                    @keyframes workflowStepEnter {
+                        from { opacity: 0; transform: translateX(-8px); }
+                        to { opacity: 1; transform: translateX(0); }
+                    }
+                    @media (prefers-reduced-motion: reduce) {
+                        #${overlayId} *,
+                        #${overlayId} *::before,
+                        #${overlayId} *::after {
+                            animation-duration: 0.01ms !important;
+                            animation-iteration-count: 1 !important;
+                            transition-duration: 0.01ms !important;
+                        }
+                    }
                     #${overlayId} .workflow-status {
+                        position: relative;
                         width: 100%;
                         max-width: 100%;
                         min-width: 0;
@@ -363,6 +396,21 @@
                         color: #dcebe2;
                         font-weight: 700;
                         font-size: 11px;
+                    }
+                    #${overlayId} .workflow-status.counting {
+                        background-image:
+                            linear-gradient(105deg, transparent 28%, rgba(124, 242, 167, 0.32) 48%, transparent 68%),
+                            linear-gradient(135deg, rgba(90, 201, 125, 0.16), rgba(17, 27, 34, 0.85));
+                        background-size: 220% 100%, 100% 100%;
+                        animation: workflowLightFlow 1.35s linear infinite, workflowCountdownPulse 1.8s ease-in-out infinite;
+                    }
+                    @keyframes workflowLightFlow {
+                        from { background-position: -120% 0, 0 0; }
+                        to { background-position: 120% 0, 0 0; }
+                    }
+                    @keyframes workflowCountdownPulse {
+                        0%, 100% { border-color: rgba(124, 242, 167, 0.3); box-shadow: 0 0 0 rgba(124, 242, 167, 0); }
+                        50% { border-color: rgba(124, 242, 167, 0.8); box-shadow: 0 0 13px rgba(124, 242, 167, 0.2); }
                     }
                     #${overlayId} .comparison-box {
                         margin-top: 14px;
@@ -1110,10 +1158,11 @@
                     : evaluationHoverStartedAt === null
                         ? '專案[停止]，滑鼠移到綠旗並保持 10 秒，並避免鍵盤輸入'
                         : `請保持不動，檢核將在 ${(EVALUATION_HOVER_MS / 1000 - hoverSeconds).toFixed(1)} 秒後啟動`;
+                const countdownClass = !workflowState.evaluationStarted && evaluationHoverStartedAt !== null ? ' counting' : '';
 
                 return `
                     <div class="workflow-button-wrap" aria-live="polite">
-                        <div class="workflow-status">${evaluationPrompt}</div>
+                        <div class="workflow-status${countdownClass}">${evaluationPrompt}</div>
                     </div>
                     <ul class="workflow-list">
                         ${workflow.map((group, index) => {
@@ -1141,6 +1190,72 @@
                         }).join('')}
                     </ul>
                 `;
+            }
+
+            function syncWorkflowMarkup(workflowBox, workflowHtml) {
+                const nextMarkup = document.createElement('div');
+                nextMarkup.innerHTML = workflowHtml;
+                const currentStatus = workflowBox.querySelector('.workflow-status');
+                const nextStatus = nextMarkup.querySelector('.workflow-status');
+                const currentGroups = workflowBox.querySelectorAll('.workflow-group');
+                const nextGroups = nextMarkup.querySelectorAll('.workflow-group');
+
+                if (!currentStatus || !nextStatus || currentGroups.length !== nextGroups.length) {
+                    workflowBox.innerHTML = `
+                        <div class="workflow-title">評估流程</div>
+                        ${workflowHtml}
+                    `;
+                    return;
+                }
+
+                if (currentStatus.textContent !== nextStatus.textContent) {
+                    currentStatus.textContent = nextStatus.textContent;
+                }
+                if (currentStatus.className !== nextStatus.className) {
+                    currentStatus.className = nextStatus.className;
+                }
+
+                currentGroups.forEach((group, index) => {
+                    const nextGroup = nextGroups[index];
+                    if (group.className !== nextGroup.className) {
+                        group.className = nextGroup.className;
+                    }
+
+                    const toggle = group.querySelector('.workflow-stage-toggle');
+                    const nextToggle = nextGroup.querySelector('.workflow-stage-toggle');
+                    const details = group.querySelector('.workflow-details');
+                    const nextDetails = nextGroup.querySelector('.workflow-details');
+                    const expanded = nextToggle.getAttribute('aria-expanded') === 'true';
+                    toggle.setAttribute('aria-expanded', String(expanded));
+                    details.toggleAttribute('inert', !expanded);
+
+                    const stageIcon = toggle.querySelector('.workflow-icon');
+                    const nextStageIcon = nextToggle.querySelector('.workflow-icon');
+                    if (stageIcon.textContent !== nextStageIcon.textContent) {
+                        stageIcon.textContent = nextStageIcon.textContent;
+                    }
+
+                    const stageStatus = toggle.querySelector('.workflow-stage-status');
+                    const nextStageStatus = nextToggle.querySelector('.workflow-stage-status');
+                    if (stageStatus.textContent !== nextStageStatus.textContent) {
+                        stageStatus.textContent = nextStageStatus.textContent;
+                    }
+
+                    const steps = group.querySelectorAll('.workflow-step');
+                    const nextSteps = nextGroup.querySelectorAll('.workflow-step');
+                    steps.forEach((step, stepIndex) => {
+                        const nextStep = nextSteps[stepIndex];
+                        if (!nextStep) return;
+                        if (step.className !== nextStep.className) {
+                            step.className = nextStep.className;
+                        }
+                        const icon = step.querySelector('.workflow-icon');
+                        const nextIcon = nextStep.querySelector('.workflow-icon');
+                        if (icon.textContent !== nextIcon.textContent) {
+                            icon.textContent = nextIcon.textContent;
+                        }
+                    });
+                });
             }
 
             // 監聽使用者操作事件，並根據條件更新 workflowState
@@ -1400,10 +1515,7 @@
 
                     const workflowBox = overlayBody.querySelector('.workflow-box');
                     if (workflowBox) {
-                        workflowBox.innerHTML = `
-                            <div class="workflow-title">評估流程</div>
-                            ${workflowHtml}
-                        `;
+                        syncWorkflowMarkup(workflowBox, workflowHtml);
                     }
                 }
 
