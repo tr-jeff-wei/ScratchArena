@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Scratch Arena Quiz Checker",
+  "version": "1.0.0",
+  "description": "Check the current Scratch project against Scratch Arena quiz requirements.",
+  "permissions": [
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://scratch.mit.edu/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://scratch.mit.edu/projects/*/editor*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "checker.js"
+      ],
+      "matches": [
+        "https://scratch.mit.edu/*"
+      ]
+    }
+  ]
+}

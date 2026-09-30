@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scratch Arena 檢核</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: ui-rounded, "Avenir Next", "Segoe UI", sans-serif;
+      color: #182b2a;
+      background: #f4f7f0;
+    }
+    body { width: 390px; margin: 0; padding: 18px; }
+    header { display: flex; align-items: center; gap: 11px; margin-bottom: 17px; }
+    .mark { display: grid; width: 38px; height: 38px; place-items: center; color: #fff; background: #117c67; border-radius: 10px 10px 10px 3px; font-weight: 800; }
+    h1 { margin: 0; font-size: 17px; }
+    .subtitle { margin: 3px 0 0; color: #63736c; font-size: 12px; }
+    button { width: 100%; min-height: 42px; color: white; background: #117c67; border: 0; border-radius: 5px; cursor: pointer; font: inherit; font-weight: 700; }
+    button:hover { background: #0c6655; }
+    button:disabled { cursor: wait; opacity: .65; }
+    #summary { display: flex; align-items: center; gap: 8px; margin: 14px 0 8px; color: #586b63; font-size: 12px; }
+    #summary[data-state="pass"] { color: #117c67; }
+    #summary[data-state="fail"] { color: #a83e37; }
+    .summary-mark { display: grid; width: 19px; height: 19px; place-items: center; background: #e4ebe2; border-radius: 50%; font-size: 11px; font-weight: 800; }
+    #summary[data-state="pass"] .summary-mark { color: #fff; background: #16805d; }
+    #summary[data-state="fail"] .summary-mark { color: #fff; background: #b54e46; }
+    #results { display: grid; max-height: 440px; overflow: auto; padding-right: 3px; }
+    .group { padding: 10px 1px 7px; border-top: 1px solid #d6dfd6; }
+    .group-heading { display: flex; min-width: 0; align-items: center; gap: 8px; margin-bottom: 3px; }
+    .group-kind { display: grid; width: 27px; height: 27px; flex: 0 0 27px; place-items: center; color: #116c5d; background: #dbeee5; border-radius: 6px 6px 6px 2px; font-size: 9px; font-weight: 800; }
+    .group[data-kind="stage"] .group-kind { color: #81551c; background: #f3e9d5; }
+    .group-name { min-width: 0; flex: 1; overflow-wrap: anywhere; font-size: 13px; font-weight: 800; }
+    .group-count { flex-shrink: 0; color: #68776f; font-size: 10px; font-variant-numeric: tabular-nums; }
+    .group-count[data-state="pass"] { color: #117c67; }
+    .group-count[data-state="fail"] { color: #a83e37; }
+    .result { display: grid; grid-template-columns: 17px minmax(0, 1fr); gap: 7px; padding: 7px 3px 7px 35px; border-bottom: 1px solid #e7ece6; }
+    .result:last-child { border-bottom: 0; }
+    .icon { display: grid; width: 16px; height: 16px; place-items: center; color: #fff; background: #b54e46; border-radius: 50%; font-size: 10px; font-weight: 800; }
+    .result.pass .icon { background: #16805d; }
+    .label { font-size: 11px; font-weight: 700; line-height: 1.35; }
+    .detail { margin-top: 2px; color: #67756e; font-size: 10px; line-height: 1.4; }
+    .empty { padding: 13px 10px; color: #67756e; background: #fff; border: 1px solid #dce5dc; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="mark" aria-hidden="true">SA</div>
+    <div>
+      <h1>Scratch Arena 檢核</h1>
+      <p class="subtitle">檢查目前開啟的 Scratch 專案</p>
+    </div>
+  </header>
+  <button id="start-check" type="button">啟動檢核</button>
+  <div id="summary" role="status" data-state="idle"><span class="summary-mark" aria-hidden="true">·</span><span>尚未檢核</span></div>
+  <div id="results" aria-live="polite">
+    <div class="empty">按下「啟動檢核」開始檢查。</div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
