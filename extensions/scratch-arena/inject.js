@@ -47,13 +47,97 @@
             const overlayId = 'scratch-arena-info';
             const styleId = 'scratch-arena-info-style';
 
+            function ensurePanelVisibilityButton(overlay) {
+                const buttonId = `${overlayId}-visibility-toggle`;
+                const existingButton = document.getElementById(buttonId);
+                if (existingButton) return existingButton;
+
+                const stageSizeRow = document.querySelector('[class*="stage-size-row"]');
+                const nativeButton = stageSizeRow?.querySelector('button[aria-label*="full screen" i], button[title*="full screen" i], button[class*="stage-button"]');
+                const toolbar = stageSizeRow?.parentElement;
+                if (!nativeButton || !toolbar) return null;
+
+                const button = nativeButton.cloneNode(false);
+                button.id = buttonId;
+                button.type = 'button';
+                const panelVisible = !overlay.hidden;
+                const label = panelVisible ? '隱藏' : '顯示';
+                button.setAttribute('aria-label', `${label} Scratch Arena 評估面板`);
+                button.setAttribute('aria-pressed', String(panelVisible));
+                button.title = `${label} Scratch Arena 評估面板`;
+                const buttonLabel = document.createElement('span');
+                buttonLabel.textContent = 'Scratch Arena';
+
+                const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                icon.setAttribute('viewBox', '0 0 20 20');
+                icon.setAttribute('width', '18');
+                icon.setAttribute('height', '18');
+                icon.setAttribute('fill', 'none');
+                icon.setAttribute('stroke', 'currentColor');
+                icon.setAttribute('stroke-width', '1.5');
+                icon.setAttribute('stroke-linecap', 'round');
+                icon.setAttribute('stroke-linejoin', 'round');
+                icon.setAttribute('aria-hidden', 'true');
+                const frame = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                frame.setAttribute('x', '2.75');
+                frame.setAttribute('y', '3.5');
+                frame.setAttribute('width', '14.5');
+                frame.setAttribute('height', '13');
+                frame.setAttribute('rx', '1.5');
+                const divider = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                divider.setAttribute('d', 'M8 4v12');
+                icon.append(frame, divider);
+                button.append(icon, buttonLabel);
+
+                button.addEventListener('click', () => {
+                    const visible = overlay.hidden;
+                    overlay.hidden = !visible;
+                    button.setAttribute('aria-pressed', String(visible));
+                    const label = visible ? '隱藏' : '顯示';
+                    button.setAttribute('aria-label', `${label} Scratch Arena 評估面板`);
+                    button.title = `${label} Scratch Arena 評估面板`;
+                });
+
+                toolbar.insertBefore(button, stageSizeRow);
+                return button;
+            }
+
             function ensureOverlay() {
                 let overlay = document.getElementById(overlayId);
-                if (overlay) return overlay;
+                if (overlay) {
+                    ensurePanelVisibilityButton(overlay);
+                    return overlay;
+                }
 
                 const style = document.createElement('style');
                 style.id = styleId;
                 style.textContent = `
+                    #${overlayId}-visibility-toggle {
+                        display: inline-flex;
+                        width: auto !important;
+                        min-width: 132px;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 7px;
+                        padding: 0 10px !important;
+                        color: #fff !important;
+                        background: #f28c18 !important;
+                        border-color: #db7608 !important;
+                        border-radius: 4px;
+                        font-size: 12px;
+                        font-weight: 700;
+                        white-space: nowrap;
+                    }
+                    #${overlayId}-visibility-toggle:hover {
+                        background: #df7400 !important;
+                    }
+                    #${overlayId}-visibility-toggle:focus-visible {
+                        outline: 2px solid #4c97ff;
+                        outline-offset: 2px;
+                    }
+                    #${overlayId}-visibility-toggle svg {
+                        flex: 0 0 18px;
+                    }
                     #${overlayId} {
                         position: fixed;
                         top: 53px;
@@ -85,41 +169,6 @@
                         white-space: nowrap;
                         overflow: hidden;
                         text-overflow: ellipsis;
-                    }
-                    #${overlayId} .toggle-button {
-                        appearance: none;
-                        border: 1px solid rgba(255,255,255,0.18);
-                        background: rgba(255,255,255,0.08);
-                        color: #f8f8f2;
-                        border-radius: 999px;
-                        width: 28px;
-                        height: 28px;
-                        cursor: pointer;
-                        font-size: 14px;
-                        line-height: 1;
-                        display: inline-flex;
-                        align-items: center;
-                        justify-content: center;
-                    }
-                    #${overlayId} .toggle-button:hover {
-                        background: rgba(255,255,255,0.14);
-                    }
-                    #${overlayId}.collapsed {
-                        min-width: 80px;
-                        max-width: 80px;
-                        padding: 10px;
-                    }
-                    #${overlayId}.collapsed .panel-header {
-                        margin-bottom: 0;
-                    }
-                    #${overlayId}.collapsed .field,
-                    #${overlayId}.collapsed .constraint-box {
-                        display: none;
-                    }
-                    #${overlayId}.collapsed .status-pill,
-                    #${overlayId}.collapsed .constraint-title,
-                    #${overlayId}.collapsed .constraint-list {
-                        display: none;
                     }
                     #${overlayId} .field {
                         margin: 4px 0;
@@ -168,27 +217,16 @@
                         background: rgba(255, 182, 74, 0.16);
                         border: 1px solid rgba(255, 182, 74, 0.28);
                     }
-                    #${overlayId} .constraint-box {
-                        margin-top: 10px;
-                        padding-top: 10px;
-                        border-top: 1px solid rgba(255,255,255,0.12);
-                    }
                     #${overlayId} .workflow-box {
                         margin-top: 10px;
                         padding-top: 10px;
                         border-top: 1px solid rgba(255,255,255,0.12);
                     }
-                    #${overlayId} .constraint-title,
                     #${overlayId} .workflow-title {
                         margin: 0 0 8px;
                         font-size: 11px;
                         color: #9eafb2;
                         letter-spacing: 0.08em;
-                    }
-                    #${overlayId} .constraint-list {
-                        list-style: none;
-                        padding: 0;
-                        margin: 0;
                     }
                     #${overlayId} .workflow-list {
                         display: grid;
@@ -320,7 +358,6 @@
                         margin: 0 8px 8px 20px;
                         border-left: 1px solid rgba(130, 163, 166, 0.26);
                     }
-                    #${overlayId} .constraint-item,
                     #${overlayId} .workflow-step {
                         display: flex;
                         align-items: flex-start;
@@ -331,7 +368,6 @@
                         font-size: 10px;
                         line-height: 1.4;
                     }
-                    #${overlayId} .constraint-icon,
                     #${overlayId} .workflow-step .workflow-icon {
                         width: 18px;
                         height: 18px;
@@ -341,15 +377,12 @@
                         font-size: 12px;
                         line-height: 1;
                     }
-                    #${overlayId} .constraint-item.pass .constraint-icon,
                     #${overlayId} .workflow-step.pass .workflow-icon {
                         color: #7cf2a7;
                     }
-                    #${overlayId} .constraint-item.fail .constraint-icon,
                     #${overlayId} .workflow-step.fail .workflow-icon {
                         color: #ff8c94;
                     }
-                    #${overlayId} .constraint-item.unknown .constraint-icon,
                     #${overlayId} .workflow-step.unknown .workflow-icon,
                     #${overlayId} .workflow-step.locked .workflow-icon,
                     #${overlayId} .workflow-step.active .workflow-icon {
@@ -412,81 +445,6 @@
                         0%, 100% { border-color: rgba(124, 242, 167, 0.3); box-shadow: 0 0 0 rgba(124, 242, 167, 0); }
                         50% { border-color: rgba(124, 242, 167, 0.8); box-shadow: 0 0 13px rgba(124, 242, 167, 0.2); }
                     }
-                    #${overlayId} .comparison-box {
-                        margin-top: 14px;
-                        padding-top: 10px;
-                        border-top: 1px solid rgba(255,255,255,0.12);
-                    }
-                    #${overlayId} .comparison-title {
-                        margin: 0 0 8px;
-                        font-size: 11px;
-                        color: #c3cbe3;
-                    }
-                    #${overlayId} #scratch-arena-remix-comparison {
-                        max-height: 180px;
-                        overflow-y: auto;
-                        overflow-x: hidden;
-                        padding-right: 6px;
-                        scrollbar-width: thin;
-                        scrollbar-color: rgba(255,255,255,0.5) rgba(255,255,255,0.08);
-                    }
-                    #${overlayId} #scratch-arena-remix-comparison::-webkit-scrollbar {
-                        width: 8px;
-                    }
-                    #${overlayId} #scratch-arena-remix-comparison::-webkit-scrollbar-track {
-                        background: rgba(255,255,255,0.08);
-                        border-radius: 999px;
-                    }
-                    #${overlayId} #scratch-arena-remix-comparison::-webkit-scrollbar-thumb {
-                        background: rgba(255,255,255,0.5);
-                        border-radius: 999px;
-                        border: 2px solid rgba(255,255,255,0.08);
-                    }
-                    #${overlayId} #scratch-arena-remix-comparison::-webkit-scrollbar-thumb:hover {
-                        background: rgba(255,255,255,0.72);
-                    }
-                    #${overlayId} .comparison-summary {
-                        display: flex;
-                        align-items: center;
-                        gap: 8px;
-                        margin-bottom: 8px;
-                        font-size: 11px;
-                        color: #d7d7e0;
-                    }
-                    #${overlayId} .comparison-message {
-                        color: #d7d7e0;
-                        font-size: 11px;
-                        line-height: 1.4;
-                    }
-                    #${overlayId} .comparison-list {
-                        list-style: none;
-                        padding: 0;
-                        margin: 0;
-                    }
-                    #${overlayId} .comparison-item {
-                        margin: 8px 0;
-                        padding: 10px;
-                        border: 1px solid rgba(255,255,255,0.08);
-                        border-radius: 10px;
-                        background: rgba(255,255,255,0.04);
-                    }
-                    #${overlayId} .comparison-item-header {
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        gap: 10px;
-                        margin-bottom: 6px;
-                        font-size: 11px;
-                    }
-                    #${overlayId} .comparison-item-name {
-                        font-weight: 700;
-                        color: #f8f8f2;
-                    }
-                    #${overlayId} .comparison-item-detail {
-                        color: #d7d7e0;
-                        font-size: 11px;
-                        line-height: 1.4;
-                    }
                 `;
                 document.head.appendChild(style);
 
@@ -495,20 +453,11 @@
                 overlay.innerHTML = `
                     <div class="panel-header">
                         <h4>Scratch Arena</h4>
-                        <button id="${overlayId}-toggle" class="toggle-button" aria-expanded="true" aria-label="Collapse panel">−</button>
                     </div>
                     <div id="scratch-arena-info-body">等待 VM 初始化...</div>
                 `;
                 document.body.appendChild(overlay);
-
-                const toggleButton = overlay.querySelector(`#${overlayId}-toggle`);
-                if (toggleButton) {
-                    toggleButton.addEventListener('click', () => {
-                        const collapsed = overlay.classList.toggle('collapsed');
-                        toggleButton.textContent = collapsed ? '+' : '−';
-                        toggleButton.setAttribute('aria-expanded', (!collapsed).toString());
-                    });
-                }
+                ensurePanelVisibilityButton(overlay);
 
                 return overlay;
             }
@@ -528,7 +477,6 @@
                 return target.currentCostume?.name || target.costume?.name || 'N/A';
             }
             
-            let remixComparison = null;
             let remixComparisonStatus = 'unknown';
             let evaluationRunId = 0;
             let expandedWorkflowStage = 0;
@@ -814,68 +762,18 @@
                 }
             }
 
-            function renderComparisonItem(item) {
-                const statusText = item.overallMatch ? '未修改' : '已修改';
-                const changedText = item.missing ? '角色數量變動' : (item.changedItems.length ? item.changedItems.join('、') : '無變更');
-                return `
-                    <li class="comparison-item ${item.overallMatch ? 'pass' : 'fail'}">
-                        <div class="comparison-item-header">
-                            <span class="comparison-item-name">${item.name}</span>
-                            <span class="status-pill ${item.overallMatch ? 'running' : 'stopped'}">${statusText}</span>
-                        </div>
-                        <div class="comparison-item-detail">差異：${changedText}</div>
-                        <div class="comparison-item-detail">變數：${item.variablesMatch ? 'O' : 'X'}，清單：${item.listsMatch ? 'O' : 'X'}，程式：${item.blocksMatch ? 'O' : 'X'}，造型：${item.costumesMatch ? 'O' : 'X'}</div>
-                    </li>
-                `;
-            }
-
-            function renderRemixComparisonHtml(comparison) {
-                if (!comparison) {
-                    return '<div class="comparison-message">比對中...</div>';
-                }
-                if (comparison.error) {
-                    return `<div class="comparison-message">錯誤：${comparison.error}</div>`;
-                }
-                if (!comparison.details || comparison.details.length === 0) {
-                    return '<div class="comparison-message">未找到非 Player 角色可比對。</div>';
-                }
-                const title = comparison.status === 'pass' ? '全部相同' : comparison.status === 'fail' ? '已修改' : '未知';
-                return `
-                    <div class="comparison-summary">
-                        <span class="comparison-label">Remix 比對結果：</span>
-                        <span class="status-pill ${comparison.status}">${title}</span>
-                    </div>
-                    <ul class="comparison-list">
-                        ${comparison.details.map(item => renderComparisonItem(item)).join('')}
-                    </ul>
-                `;
-            }
-
-            let remixComparisonRendered = false;
-
-            function refreshRemixComparisonBlock() {
-                const comparisonContainer = overlayBody?.querySelector('#scratch-arena-remix-comparison');
-                if (!comparisonContainer) return;
-                comparisonContainer.innerHTML = renderRemixComparisonHtml(remixComparison);
-            }
-
             function startRemixComparison() {
                 const runId = evaluationRunId;
                 compareProjectToRemixSource()
                     .then(result => {
                         if (runId !== evaluationRunId) return;
-                        remixComparison = result;
                         remixComparisonStatus = result.status;
-                        refreshRemixComparisonBlock();
-                        remixComparisonRendered = true;
                         refreshOverlay();
                     })
                     .catch(error => {
                         if (runId !== evaluationRunId) return;
-                        remixComparison = { status: 'unknown', details: [], error: error?.message || '比對失敗' };
                         remixComparisonStatus = 'unknown';
-                        refreshRemixComparisonBlock();
-                        remixComparisonRendered = true;
+                        console.warn('ScratchArena: Remix 比對失敗：', error?.message || error);
                         refreshOverlay();
                     });
             }
@@ -1012,16 +910,6 @@
                     }
                 });
                 return foundScore;
-            }
-
-            function renderConstraintItem(text, status) {
-                const icon = status === 'pass' ? '✓' : status === 'fail' ? '✕' : '·';
-                return `
-                    <li class="constraint-item ${status}">
-                        <span class="constraint-icon">${icon}</span>
-                        <span>${text}</span>
-                    </li>
-                `;
             }
 
             const workflowState = {
@@ -1329,6 +1217,12 @@
             const overlayBody = overlay.querySelector('#scratch-arena-info-body');
             let executionTimer = null;
 
+            const toolbarObserver = new MutationObserver(() => {
+                const button = document.getElementById(`${overlayId}-visibility-toggle`);
+                if (!button?.isConnected) ensurePanelVisibilityButton(overlay);
+            });
+            toolbarObserver.observe(document.body, { childList: true, subtree: true });
+
             overlayBody.addEventListener('click', event => {
                 const toggle = event.target.closest('.workflow-stage-toggle');
                 if (!toggle) return;
@@ -1356,9 +1250,7 @@
                 workflowState.uploadReported = false;
                 playerPreX = null;
                 playerPreY = null;
-                remixComparison = null;
                 remixComparisonStatus = 'unknown';
-                remixComparisonRendered = false;
                 if (executionTimer !== null) {
                     clearInterval(executionTimer);
                     executionTimer = null;
@@ -1442,15 +1334,6 @@
                     : 'fail';
                     
                
-                    const constraintHtml = [
-                        renderConstraintItem('專案需為 [已分享] 狀態', workflowState.projectShared),
-                        renderConstraintItem('專案需為 [已儲存] 狀態', workflowState.projectSaved),
-                        renderConstraintItem('不能修改變數 Score', scoreStatus),
-                        renderConstraintItem('不能更動所有非玩家的角色內容', nonPlayerStatus),
-                        renderConstraintItem('Player 角色不能使用所有非玩家角色的廣播事件，但可以建構新的廣播事件', broadcastStatus),
-                        renderConstraintItem('Player 每次移動限制速度 < 10', speedStatus)
-                    ].join('');
-                    
                     const workflowHtml = renderWorkflowFlow(
                         { evaluationStarted: workflowState.evaluationStarted, greenFlagStarted: workflowState.greenFlagStarted },
                         workflowState.projectSaved && workflowState.projectShared,
@@ -1470,25 +1353,16 @@
                     <div class="field"><span class="label">Project status:</span> <span class="value"><span class="status-pill ${projectStatus}">${projectStatus}</span></span></div>
                     `;
                     
-                    const constraintBox = overlayBody.querySelector('.constraint-box');
-                    if (!constraintBox) {
+                    let workflowBox = overlayBody.querySelector('.workflow-box');
+                    if (!workflowBox) {
                     overlayBody.innerHTML = `
                         ${staticFieldsHtml}
                         <div class="workflow-box">
                             <div class="workflow-title">評估流程</div>
                             ${workflowHtml}
                         </div>
-                        <div class="constraint-box">
-                            <div class="constraint-title">專案條件檢查</div>
-                            <ul class="constraint-list">
-                                ${constraintHtml}
-                            </ul>
-                            <div class="comparison-box">
-                                <div class="comparison-title">Remix source 比對結果</div>
-                                <div id="scratch-arena-remix-comparison"></div>
-                            </div>
-                        </div>
                     `;
+                    workflowBox = overlayBody.querySelector('.workflow-box');
                 } else {
                     const fieldRows = overlayBody.querySelectorAll('.field');
                     if (fieldRows.length >= 5) {
@@ -1508,36 +1382,11 @@
                         }
                     }
 
-                    const constraintList = constraintBox.querySelector('.constraint-list');
-                    if (constraintList) {
-                        constraintList.innerHTML = constraintHtml;
-                    }
-
-                    const workflowBox = overlayBody.querySelector('.workflow-box');
                     if (workflowBox) {
                         syncWorkflowMarkup(workflowBox, workflowHtml);
                     }
                 }
 
-                if (remixComparisonRendered && remixComparison) {
-                    refreshRemixComparisonBlock();
-                }
-
-                const sprites = targets.map(target => ({
-                    name: target.sprite?.name || (typeof target.getName === 'function' ? target.getName() : 'unknown'),
-                    x: target.x,
-                    y: target.y,
-                    direction: target.direction,
-                    size: target.size,
-                    variables: Object.values(target.variables || {}).map(v => ({
-                        name: v.name,
-                        value: v.value
-                    }))
-                }));
-                window.postMessage({
-                    type: "SCRATCH_INFO",
-                    sprites
-                }, "*");
             }
 
             refreshOverlay();

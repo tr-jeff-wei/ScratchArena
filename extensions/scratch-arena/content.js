@@ -67,26 +67,3 @@ if (injectUrl && !injectUrl.includes("chrome-extension://invalid")) {
 
 
 
-let latestScratchInfo = null;
-
-window.addEventListener("message",(e)=>{
-
-    if(e.data.type==="SCRATCH_INFO"){
-
-        latestScratchInfo = e.data;
-
-    }
-
-});
-
-chrome.runtime.onMessage.addListener((msg,sender,sendResponse)=>{
-
-    if(msg.type==="GET_SCRATCH_INFO"){
-
-        sendResponse(latestScratchInfo);
-
-    }
-
-    return true;
-
-});
