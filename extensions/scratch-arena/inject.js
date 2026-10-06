@@ -2,6 +2,7 @@
     const MAX_WAIT_MS = 10000;
     const RETRY_INTERVAL_MS = 200;
     const startedAt = Date.now();
+    let greenFlagStartTime = null;
     let attempts = 0;
     let playerPreX = null;
     let playerPreY = null;
@@ -228,6 +229,18 @@
                         color: #9eafb2;
                         letter-spacing: 0.08em;
                     }
+                    #${overlayId} .workflow-guidance {
+                        margin: 0 0 8px;
+                        padding: 8px 9px;
+                        color: #ffe3e3;
+                        background: rgba(198, 73, 88, 0.2);
+                        border: 1px solid rgba(255, 140, 148, 0.38);
+                        border-left: 3px solid #ff8c94;
+                        border-radius: 3px;
+                        font-size: 11px;
+                        font-weight: 700;
+                        line-height: 1.45;
+                    }
                     #${overlayId} .workflow-list {
                         display: grid;
                         gap: 6px;
@@ -368,6 +381,12 @@
                         font-size: 10px;
                         line-height: 1.4;
                     }
+                    #${overlayId} .workflow-step small {
+                        display: block;
+                        margin-top: 2px;
+                        color: #9aaeb0;
+                        overflow-wrap: anywhere;
+                    }
                     #${overlayId} .workflow-step .workflow-icon {
                         width: 18px;
                         height: 18px;
@@ -415,20 +434,81 @@
                             transition-duration: 0.01ms !important;
                         }
                     }
+                    #${overlayId} .workflow-button-wrap {
+                        position: relative;
+                        width: 100%;
+                        box-sizing: border-box;
+                        margin: 10px 0 12px;
+                        padding: 9px;
+                        overflow: hidden;
+                        border: 1px solid rgba(124, 242, 167, 0.24);
+                        border-radius: 9px;
+                        background: rgba(17, 27, 34, 0.72);
+                        transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+                    }
+                    #${overlayId} .workflow-button-wrap.attention {
+                        border-color: rgba(255, 190, 91, 0.82);
+                        background: linear-gradient(135deg, rgba(104, 61, 19, 0.55), rgba(33, 28, 21, 0.92));
+                        box-shadow: 0 0 0 1px rgba(255, 190, 91, 0.16), 0 0 20px rgba(255, 170, 55, 0.2);
+                        animation: workflowPromptGlow 1.6s ease-in-out infinite;
+                    }
+                    #${overlayId} .workflow-button-wrap.attention::before {
+                        position: absolute;
+                        top: 0;
+                        bottom: 0;
+                        left: -45%;
+                        width: 35%;
+                        background: linear-gradient(90deg, transparent, rgba(255, 230, 176, 0.16), transparent);
+                        content: '';
+                        pointer-events: none;
+                        animation: workflowPromptSweep 2.8s ease-in-out infinite;
+                    }
+                    #${overlayId} .workflow-button-wrap.counting {
+                        border-color: rgba(124, 242, 167, 0.58);
+                        box-shadow: 0 0 16px rgba(65, 184, 139, 0.14);
+                    }
+                    @keyframes workflowPromptGlow {
+                        0%, 100% { box-shadow: 0 0 0 1px rgba(255, 190, 91, 0.12), 0 0 12px rgba(255, 170, 55, 0.12); }
+                        50% { box-shadow: 0 0 0 2px rgba(255, 190, 91, 0.32), 0 0 25px rgba(255, 170, 55, 0.34); }
+                    }
+                    @keyframes workflowPromptSweep {
+                        0%, 35% { left: -45%; }
+                        75%, 100% { left: 115%; }
+                    }
                     #${overlayId} .workflow-status {
                         position: relative;
                         width: 100%;
                         max-width: 100%;
                         min-width: 0;
                         box-sizing: border-box;
-                        margin: 6px 0 8px;
-                        padding: 8px 10px;
+                        margin: 0;
+                        padding: 13px 14px;
                         background: linear-gradient(135deg, rgba(90, 201, 125, 0.16), rgba(17, 27, 34, 0.85));
                         border: 1px solid rgba(124, 242, 167, 0.3);
-                        border-radius: 3px;
+                        border-radius: 6px;
                         color: #dcebe2;
                         font-weight: 700;
-                        font-size: 11px;
+                        font-size: 13px;
+                        line-height: 1.55;
+                        text-align: center;
+                    }
+                    #${overlayId} .workflow-button-wrap.attention .workflow-status {
+                        padding: 15px 14px;
+                        color: #fff0ce;
+                        background:
+                            linear-gradient(105deg, transparent 20%, rgba(255, 218, 153, 0.18) 50%, transparent 80%),
+                            linear-gradient(135deg, rgba(111, 66, 20, 0.5), rgba(34, 29, 22, 0.96));
+                        background-size: 220% 100%, 100% 100%;
+                        border-color: rgba(255, 190, 91, 0.5);
+                        font-size: 14px;
+                        animation: workflowPromptShine 2.8s ease-in-out infinite;
+                    }
+                    #${overlayId} .workflow-button-wrap.counting .workflow-status {
+                        padding: 13px 14px;
+                    }
+                    @keyframes workflowPromptShine {
+                        from { background-position: -120% 0, 0 0; }
+                        to { background-position: 120% 0, 0 0; }
                     }
                     #${overlayId} .workflow-status.counting {
                         background-image:
@@ -444,6 +524,93 @@
                     @keyframes workflowCountdownPulse {
                         0%, 100% { border-color: rgba(124, 242, 167, 0.3); box-shadow: 0 0 0 rgba(124, 242, 167, 0); }
                         50% { border-color: rgba(124, 242, 167, 0.8); box-shadow: 0 0 13px rgba(124, 242, 167, 0.2); }
+                    }
+                    .keyboard-warning-dialog {
+                        width: min(380px, calc(100vw - 40px));
+                        box-sizing: border-box;
+                        padding: 24px;
+                        color: #f8f8f2;
+                        background: linear-gradient(145deg, #20292c, #111719);
+                        border: 1px solid rgba(255, 140, 148, 0.42);
+                        border-radius: 16px;
+                        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55), 0 0 36px rgba(255, 100, 110, 0.12);
+                        font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                        animation: keyboardWarningEnter 0.2s ease-out;
+                    }
+                    .keyboard-warning-dialog::backdrop {
+                        background: rgba(5, 10, 12, 0.68);
+                        backdrop-filter: blur(4px);
+                    }
+                    .keyboard-warning-header {
+                        display: flex;
+                        align-items: center;
+                        gap: 13px;
+                    }
+                    .keyboard-warning-icon {
+                        display: grid;
+                        width: 42px;
+                        height: 42px;
+                        flex: 0 0 42px;
+                        place-items: center;
+                        color: #ff9ca3;
+                        background: rgba(255, 140, 148, 0.12);
+                        border: 1px solid rgba(255, 140, 148, 0.32);
+                        border-radius: 13px;
+                        font-size: 23px;
+                        font-weight: 800;
+                    }
+                    .keyboard-warning-eyebrow {
+                        margin: 0 0 2px;
+                        color: #ff9ca3;
+                        font-size: 11px;
+                        font-weight: 700;
+                        letter-spacing: 0.1em;
+                    }
+                    .keyboard-warning-title {
+                        margin: 0;
+                        font-size: 19px;
+                        line-height: 1.3;
+                    }
+                    .keyboard-warning-message {
+                        margin: 20px 0;
+                        padding: 12px 14px;
+                        color: #ffe3e3;
+                        background: rgba(198, 73, 88, 0.13);
+                        border-left: 3px solid #ff8c94;
+                        border-radius: 5px;
+                        font-size: 14px;
+                    }
+                    .keyboard-warning-button {
+                        display: block;
+                        width: 100%;
+                        padding: 10px 16px;
+                        color: #1a1717;
+                        background: #ff9ca3;
+                        border: 0;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font: inherit;
+                        font-weight: 750;
+                        transition: background 0.15s ease, transform 0.15s ease;
+                    }
+                    .keyboard-warning-button:hover {
+                        background: #ffb2b7;
+                        transform: translateY(-1px);
+                    }
+                    .keyboard-warning-button:focus-visible {
+                        outline: 2px solid #fff;
+                        outline-offset: 3px;
+                    }
+                    @keyframes keyboardWarningEnter {
+                        from { opacity: 0; transform: translateY(8px) scale(0.98); }
+                        to { opacity: 1; transform: translateY(0) scale(1); }
+                    }
+                    @media (prefers-reduced-motion: reduce) {
+                        .keyboard-warning-dialog,
+                        .keyboard-warning-button {
+                            animation-duration: 0.01ms;
+                            transition-duration: 0.01ms;
+                        }
                     }
                 `;
                 document.head.appendChild(style);
@@ -462,6 +629,30 @@
                 return overlay;
             }
 
+            function showWarningDialog(msg) {
+                const dialog = document.createElement('dialog');
+                dialog.className = 'keyboard-warning-dialog';
+                dialog.setAttribute('aria-labelledby', `${overlayId}-warning-title`);
+                dialog.setAttribute('aria-describedby', `${overlayId}-warning-message`);
+                dialog.innerHTML = `
+                    <div class="keyboard-warning-header">
+                        <span class="keyboard-warning-icon" aria-hidden="true">!</span>
+                        <div>
+                            <p class="keyboard-warning-eyebrow">操作提醒</p>
+                            <h3 class="keyboard-warning-title" id="${overlayId}-warning-title">檢測已中止</h3>
+                        </div>
+                    </div>
+                    <p class="keyboard-warning-message" id="${overlayId}-warning-message">${msg}</p>
+                    <button class="keyboard-warning-button" type="button" autofocus>我知道了</button>
+                `;
+                const closeButton = dialog.querySelector('button');
+                closeButton.addEventListener('click', () => dialog.close());
+                dialog.addEventListener('close', () => dialog.remove(), { once: true });
+                document.body.appendChild(dialog);
+                dialog.showModal();
+                closeButton.focus();
+            }
+
             function getCostumeName(target) {
                 if (!target) return 'N/A';
                 if (typeof target.getCostume === 'function') {
@@ -478,8 +669,10 @@
             }
             
             let remixComparisonStatus = 'unknown';
+            let remixComparisonFailures = [];
             let evaluationRunId = 0;
-            let expandedWorkflowStage = 0;
+            const expandedWorkflowStages = new Set([0]);
+            let previousWorkflowGroupStatuses = null;
 
             function getProjectIdFromUrl() {
                 const match = location.href.match(/projects\/(\d+)/) || location.pathname.match(/projects\/(\d+)/);
@@ -768,11 +961,15 @@
                     .then(result => {
                         if (runId !== evaluationRunId) return;
                         remixComparisonStatus = result.status;
+                        remixComparisonFailures = result.status === 'fail'
+                            ? result.details.filter(item => !item.overallMatch)
+                            : [];
                         refreshOverlay();
                     })
                     .catch(error => {
                         if (runId !== evaluationRunId) return;
                         remixComparisonStatus = 'unknown';
+                        remixComparisonFailures = [];
                         console.warn('ScratchArena: Remix 比對失敗：', error?.message || error);
                         refreshOverlay();
                     });
@@ -923,9 +1120,10 @@
                 successDetected: false,
                 uploadReported: false
             };
-            const EVALUATION_HOVER_MS = 10000;
+            const EVALUATION_HOVER_MS = 5000;
             let evaluationHoverStartedAt = null;
             let evaluationHoverTimer = null;
+            let pointerPosition = null;
 
             function findGreenFlagButton() {
                 const selectors = [
@@ -953,13 +1151,35 @@
                 return '待檢核';
             }
 
+            function escapeHtml(value) {
+                return String(value).replace(/[&<>"']/g, character => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                })[character]);
+            }
+
+            function getNonPlayerCheckDetails() {
+                if (remixComparisonStatus !== 'fail') {
+                    return '背景與非 Player 角色需與 remix 原始來源一致';
+                }
+
+                const failures = remixComparisonFailures.map(item => {
+                    const name = item.name === 'Stage' ? '背景' : item.name;
+                    return `${name}：${item.changedItems.join('、') || '內容不一致'}`;
+                });
+                return `未通過：${failures.join('；')}`;
+            }
+
             function renderWorkflowSubStep(stepText, status, subText = '') {
                 const icon = status === 'pass' ? '✓' : status === 'fail' ? '✕' : status === 'active' ? '→' : '·';
                 return `
                     <li class="workflow-step ${status}">
                         <span class="workflow-icon">${icon}</span>
                         <span>
-                            ${stepText}${subText ? `<br><small>${subText}</small>` : ''}
+                            ${stepText}${subText ? `<br><small>${escapeHtml(subText)}</small>` : ''}
                         </span>
                     </li>
                 `;
@@ -985,7 +1205,7 @@
                             {
                                 label: '1.2 非更動項目檢核',
                                 status: nonPlayerStatus === 'pass' ? 'pass' : nonPlayerStatus === 'fail' ? 'fail' : stage1Ready ? 'active' : 'locked',
-                                sub: '背景與非 Player 角色需與 remix 原始來源一致'
+                                sub: getNonPlayerCheckDetails()
                             },
                             {
                                 label: '1.3 Player 程式合規檢核',
@@ -1038,23 +1258,38 @@
                     }
                 ];
 
+                const workflowGroupStatuses = workflow.map(group => group.status);
+                if (previousWorkflowGroupStatuses) {
+                    workflowGroupStatuses.forEach((status, index) => {
+                        if (previousWorkflowGroupStatuses[index] !== status) {
+                            expandedWorkflowStages.add(index);
+                        }
+                    });
+                }
+                previousWorkflowGroupStatuses = workflowGroupStatuses;
+
                 const hoverSeconds = evaluationHoverStartedAt === null
                     ? 0
                     : Math.min(EVALUATION_HOVER_MS, Date.now() - evaluationHoverStartedAt) / 1000;
                 const evaluationPrompt = workflowState.evaluationStarted
-                    ? '檢核已啟動，請保持滑鼠在綠旗上，並避免鍵盤輸入'
+                    ? '檢核啟動'
                     : evaluationHoverStartedAt === null
-                        ? '專案[停止]，滑鼠移到綠旗並保持 10 秒，並避免鍵盤輸入'
+                        ? `停止專案 + 滑鼠移到綠旗  >>>>  啟動檢核 `
                         : `請保持不動，檢核將在 ${(EVALUATION_HOVER_MS / 1000 - hoverSeconds).toFixed(1)} 秒後啟動`;
-                const countdownClass = !workflowState.evaluationStarted && evaluationHoverStartedAt !== null ? ' counting' : '';
+                const promptStateClass = workflowState.evaluationStarted
+                    ? ''
+                    : evaluationHoverStartedAt === null
+                        ? ' attention'
+                        : ' counting';
 
                 return `
-                    <div class="workflow-button-wrap" aria-live="polite">
-                        <div class="workflow-status${countdownClass}">${evaluationPrompt}</div>
+                    <div class="workflow-guidance" role="note">全程保持滑鼠在綠旗按鈕上，禁止所有鍵盤輸入</div>
+                    <div class="workflow-button-wrap${promptStateClass}" aria-live="polite">
+                        <div class="workflow-status${promptStateClass}">${evaluationPrompt}</div>
                     </div>
                     <ul class="workflow-list">
                         ${workflow.map((group, index) => {
-                            const expanded = expandedWorkflowStage === index;
+                            const expanded = expandedWorkflowStages.has(index);
                             const icon = group.status === 'pass' ? '✓' : group.status === 'fail' ? '✕' : group.status === 'active' ? '→' : '·';
                             return `
                                 <li class="workflow-group ${group.status}${expanded ? ' expanded' : ''}">
@@ -1142,6 +1377,11 @@
                         if (icon.textContent !== nextIcon.textContent) {
                             icon.textContent = nextIcon.textContent;
                         }
+                        const description = step.querySelector(':scope > span:last-child');
+                        const nextDescription = nextStep.querySelector(':scope > span:last-child');
+                        if (description && nextDescription && description.innerHTML !== nextDescription.innerHTML) {
+                            description.innerHTML = nextDescription.innerHTML;
+                        }
                     });
                 });
             }
@@ -1155,6 +1395,7 @@
                     if (!isStage1Passed()) return;
                     if (event.target === flagButton || flagButton.contains(event.target)) {
                         workflowState.greenFlagStarted = true;
+                        greenFlagStartTime = Date.now();
                         playerPreX = null;
                         playerPreY = null;
                         startExecutionMonitoring();
@@ -1167,7 +1408,9 @@
                     const targetKey = event.key ? event.key.toLowerCase() : '';
                     if (!['meta', 'control', 'alt', 'shift'].includes(targetKey) && !event.ctrlKey && !event.altKey && !event.metaKey) {
                         workflowState.keyboardInputDetected = true;
-
+                        if(workflowState.evaluationStarted){
+                            showWarningDialog('鍵盤輸入，檢測中止！！');
+                        }
                         resetEvaluationWorkflow();
                         return;
                     }
@@ -1175,6 +1418,7 @@
                 });
 
                 document.addEventListener('pointermove', (event) => {
+                    pointerPosition = { x: event.clientX, y: event.clientY };
                     const flagButton = findGreenFlagButton();
                     if (!flagButton) {
                         resetEvaluationWorkflow();
@@ -1183,6 +1427,9 @@
                     const rect = flagButton.getBoundingClientRect();
                     const isInside = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
                     if (!isInside) {
+                        if(workflowState.evaluationStarted){
+                            showWarningDialog('滑鼠移出綠旗，檢測中止！！');
+                        }
                         resetEvaluationWorkflow();
                         return;
                     }
@@ -1196,7 +1443,11 @@
                                 return;
                             }
                             const currentRect = currentFlag.getBoundingClientRect();
-                            const stillInside = event.clientX >= currentRect.left && event.clientX <= currentRect.right && event.clientY >= currentRect.top && event.clientY <= currentRect.bottom;
+                            const stillInside = pointerPosition !== null
+                                && pointerPosition.x >= currentRect.left
+                                && pointerPosition.x <= currentRect.right
+                                && pointerPosition.y >= currentRect.top
+                                && pointerPosition.y <= currentRect.bottom;
                             if (!stillInside || workflowState.keyboardInputDetected) {
                                 resetEvaluationWorkflow();
                                 return;
@@ -1210,7 +1461,7 @@
                         }, 100);
                     }
                     workflowState.mouseLeftFlag = false;
-                });
+                }, true);
             }
 
             const overlay = ensureOverlay();
@@ -1227,7 +1478,11 @@
                 const toggle = event.target.closest('.workflow-stage-toggle');
                 if (!toggle) return;
                 const stage = Number(toggle.dataset.workflowStage);
-                expandedWorkflowStage = expandedWorkflowStage === stage ? -1 : stage;
+                if (expandedWorkflowStages.has(stage)) {
+                    expandedWorkflowStages.delete(stage);
+                } else {
+                    expandedWorkflowStages.add(stage);
+                }
                 refreshOverlay();
             });
 
@@ -1248,9 +1503,11 @@
                 workflowState.executionFinished = false;
                 workflowState.successDetected = false;
                 workflowState.uploadReported = false;
+                greenFlagStartTime=null;
                 playerPreX = null;
                 playerPreY = null;
                 remixComparisonStatus = 'unknown';
+                remixComparisonFailures = [];
                 if (executionTimer !== null) {
                     clearInterval(executionTimer);
                     executionTimer = null;
@@ -1332,7 +1589,14 @@
                     : playerSpeed < 10
                     ? 'pass'
                     : 'fail';
+
+                    // 如果速度超過 10，且已經超過 EVALUATION_HOVER_MS + 500 毫秒，則顯示警告對話框並重置檢測流程
                     
+                    if(workflowState.greenFlagStarted && Date.now() - greenFlagStartTime  > (greenFlagStartTime+500) && speedStatus === 'fail'){
+                            showWarningDialog(`Player 移動速度 ${playerSpeed} 超過 10，檢測中止！！`);
+                            resetEvaluationWorkflow();
+                            return;
+                    }
                
                     const workflowHtml = renderWorkflowFlow(
                         { evaluationStarted: workflowState.evaluationStarted, greenFlagStarted: workflowState.greenFlagStarted },
