@@ -171,8 +171,23 @@
                         overflow: hidden;
                         text-overflow: ellipsis;
                     }
-                    #${overlayId} .field {
+                    #${overlayId} .player-status-title {
+                        margin-bottom: 6px;
+                        color: #a7d2ff;
+                        font-size: 13px;
+                        font-weight: 700;
+                    }
+                    #${overlayId} .player-status-row {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 4px;
+                    }
+                    #${overlayId} .player-status-row .field {
+                        min-width: 0;
                         margin: 4px 0;
+                        font-size: 10px;
+                        white-space: nowrap;
                     }
                     #${overlayId} .label {
                         color: #8fd3ff;
@@ -464,12 +479,29 @@
                         animation: workflowPromptSweep 2.8s ease-in-out infinite;
                     }
                     #${overlayId} .workflow-button-wrap.counting {
-                        border-color: rgba(124, 242, 167, 0.58);
-                        box-shadow: 0 0 16px rgba(65, 184, 139, 0.14);
+                        border-color: rgba(124, 242, 167, 0.85);
+                        background: linear-gradient(135deg, rgba(38, 139, 76, 0.7), rgba(17, 50, 34, 0.94));
+                        box-shadow: 0 0 18px rgba(65, 184, 139, 0.28);
+                        animation: workflowPromptGreenGlow 1.2s ease-in-out infinite;
+                    }
+                    #${overlayId} .workflow-button-wrap.counting::before {
+                        position: absolute;
+                        top: 0;
+                        bottom: 0;
+                        left: -45%;
+                        width: 35%;
+                        background: linear-gradient(90deg, transparent, rgba(196, 255, 213, 0.38), transparent);
+                        content: '';
+                        pointer-events: none;
+                        animation: workflowPromptSweep 1.8s ease-in-out infinite;
                     }
                     @keyframes workflowPromptGlow {
                         0%, 100% { box-shadow: 0 0 0 1px rgba(255, 190, 91, 0.12), 0 0 12px rgba(255, 170, 55, 0.12); }
                         50% { box-shadow: 0 0 0 2px rgba(255, 190, 91, 0.32), 0 0 25px rgba(255, 170, 55, 0.34); }
+                    }
+                    @keyframes workflowPromptGreenGlow {
+                        0%, 100% { box-shadow: 0 0 0 1px rgba(124, 242, 167, 0.28), 0 0 14px rgba(65, 184, 139, 0.22); }
+                        50% { box-shadow: 0 0 0 3px rgba(124, 242, 167, 0.58), 0 0 28px rgba(65, 184, 139, 0.5); }
                     }
                     @keyframes workflowPromptSweep {
                         0%, 35% { left: -45%; }
@@ -505,6 +537,9 @@
                     }
                     #${overlayId} .workflow-button-wrap.counting .workflow-status {
                         padding: 13px 14px;
+                        color: #fff;
+                        background: linear-gradient(135deg, #1e322698, #147d41b4);
+                        border-color: rgba(174, 255, 197, 0.8);
                     }
                     @keyframes workflowPromptShine {
                         from { background-position: -120% 0, 0 0; }
@@ -513,7 +548,7 @@
                     #${overlayId} .workflow-status.counting {
                         background-image:
                             linear-gradient(105deg, transparent 28%, rgba(124, 242, 167, 0.32) 48%, transparent 68%),
-                            linear-gradient(135deg, rgba(90, 201, 125, 0.16), rgba(17, 27, 34, 0.85));
+                            linear-gradient(135deg, #1e322698, #147d41b4);
                         background-size: 220% 100%, 100% 100%;
                         animation: workflowLightFlow 1.35s linear infinite, workflowCountdownPulse 1.8s ease-in-out infinite;
                     }
@@ -562,7 +597,7 @@
                     .keyboard-warning-eyebrow {
                         margin: 0 0 2px;
                         color: #ff9ca3;
-                        font-size: 11px;
+                        font-size: 22px;
                         font-weight: 700;
                         letter-spacing: 0.1em;
                     }
@@ -638,8 +673,7 @@
                     <div class="keyboard-warning-header">
                         <span class="keyboard-warning-icon" aria-hidden="true">!</span>
                         <div>
-                            <p class="keyboard-warning-eyebrow">操作提醒</p>
-                            <h3 class="keyboard-warning-title" id="${overlayId}-warning-title">檢測已中止</h3>
+                            <p class="keyboard-warning-eyebrow">操作提醒</p>                            
                         </div>
                     </div>
                     <p class="keyboard-warning-message" id="${overlayId}-warning-message">${msg}</p>
@@ -653,21 +687,6 @@
                 closeButton.focus();
             }
 
-            function getCostumeName(target) {
-                if (!target) return 'N/A';
-                if (typeof target.getCostume === 'function') {
-                    const costume = target.getCostume();
-                    if (costume && costume.name) return costume.name;
-                }
-                if (Array.isArray(target.sprite?.costumes) && typeof target.currentCostume === 'number') {
-                    return target.sprite.costumes[target.currentCostume]?.name || 'N/A';
-                }
-                if (Array.isArray(target.costumes) && typeof target.currentCostumeIndex === 'number') {
-                    return target.costumes[target.currentCostumeIndex]?.name || 'N/A';
-                }
-                return target.currentCostume?.name || target.costume?.name || 'N/A';
-            }
-            
             let remixComparisonStatus = 'unknown';
             let remixComparisonFailures = [];
             let evaluationRunId = 0;
@@ -1120,7 +1139,7 @@
                 successDetected: false,
                 uploadReported: false
             };
-            const EVALUATION_HOVER_MS = 5000;
+            const EVALUATION_HOVER_MS = 3000;
             let evaluationHoverStartedAt = null;
             let evaluationHoverTimer = null;
             let pointerPosition = null;
@@ -1275,7 +1294,7 @@
                     ? '檢核啟動'
                     : evaluationHoverStartedAt === null
                         ? `停止專案 + 滑鼠移到綠旗  >>>>  啟動檢核 `
-                        : `請保持不動，檢核將在 ${(EVALUATION_HOVER_MS / 1000 - hoverSeconds).toFixed(1)} 秒後啟動`;
+                        : `檢核 ${(EVALUATION_HOVER_MS / 1000 - hoverSeconds).toFixed(1)} 秒 啟動`;
                 const promptStateClass = workflowState.evaluationStarted
                     ? ''
                     : evaluationHoverStartedAt === null
@@ -1318,12 +1337,14 @@
             function syncWorkflowMarkup(workflowBox, workflowHtml) {
                 const nextMarkup = document.createElement('div');
                 nextMarkup.innerHTML = workflowHtml;
+                const currentButtonWrap = workflowBox.querySelector('.workflow-button-wrap');
+                const nextButtonWrap = nextMarkup.querySelector('.workflow-button-wrap');
                 const currentStatus = workflowBox.querySelector('.workflow-status');
                 const nextStatus = nextMarkup.querySelector('.workflow-status');
                 const currentGroups = workflowBox.querySelectorAll('.workflow-group');
                 const nextGroups = nextMarkup.querySelectorAll('.workflow-group');
 
-                if (!currentStatus || !nextStatus || currentGroups.length !== nextGroups.length) {
+                if (!currentButtonWrap || !nextButtonWrap || !currentStatus || !nextStatus || currentGroups.length !== nextGroups.length) {
                     workflowBox.innerHTML = `
                         <div class="workflow-title">評估流程</div>
                         ${workflowHtml}
@@ -1331,6 +1352,9 @@
                     return;
                 }
 
+                if (currentButtonWrap.className !== nextButtonWrap.className) {
+                    currentButtonWrap.className = nextButtonWrap.className;
+                }
                 if (currentStatus.textContent !== nextStatus.textContent) {
                     currentStatus.textContent = nextStatus.textContent;
                 }
@@ -1540,16 +1564,9 @@
                     const name = t.sprite?.name || (typeof t.getName === 'function' ? t.getName() : undefined);
                     return name === 'Player';
                 });
-                // 尋找 Ending Status 角色
-                const ending = targets.find(t => {
-                    const name = t.sprite?.name || (typeof t.getName === 'function' ? t.getName() : undefined);
-                    return name === 'Ending Status';
-                });
-
-                
                 const isExecutionMonitoring = workflowState.greenFlagStarted;
-                const playerX = isExecutionMonitoring && player ? Math.round(player.x * 100) / 100 : '等待開始執行';
-                const playerY = isExecutionMonitoring && player ? Math.round(player.y * 100) / 100 : '等待開始執行';
+                const playerX = isExecutionMonitoring && player ? Math.round(player.x )  : '-';
+                const playerY = isExecutionMonitoring && player ? Math.round(player.y )  : '-';
                 let playerVelocity = 0;
                 if (isExecutionMonitoring && player && playerPreX !== null && playerPreY !== null) {
                     playerVelocity = Math.floor(
@@ -1560,9 +1577,7 @@
                         playerPreY = playerY;
                     }
                     // 速度計算需考量 fps
-                    const playerSpeed = isExecutionMonitoring && player ? Math.round(playerVelocity * 100) / 300 : '等待開始執行';
-                    const endingCostume = isExecutionMonitoring ? getCostumeName(ending) : '等待開始執行';
-                    
+                    const playerSpeed = isExecutionMonitoring && player ? Math.round(playerVelocity * 100/3) / 100 : '-';
                     const nonPlayerTargets = targets.filter(t => {
                         const name = t.sprite?.name || (typeof t.getName === 'function' ? t.getName() : undefined);
                         return name !== 'Player';
@@ -1607,14 +1622,12 @@
                         speedStatus
                     );
                     
-                    // 取得專案執行狀態
-                    const projectStatus = getProjectStatus();
                     const staticFieldsHtml = `
-                    <div class="field"><span class="label">Player X:</span> <span class="value">${playerX}</span></div>
-                    <div class="field"><span class="label">Player Y:</span> <span class="value">${playerY}</span></div>
-                    <div class="field"><span class="label">Player Speed:</span> <span class="value">${playerSpeed}</span> <span class="warning"> <10 </span> </div>
-                    <div class="field"><span class="label">Ending Status costume:</span> <span class="value">${endingCostume}</span></div>
-                    <div class="field"><span class="label">Project status:</span> <span class="value"><span class="status-pill ${projectStatus}">${projectStatus}</span></span></div>
+                    <div class="workflow-title">Player 狀態</div>
+                    <div class="player-status-row">
+                        <div class="field"><span class="label">（</span><span class="value" data-player-x>${playerX}</span><span class="label">,</span><span class="value" data-player-y>${playerY}</span><span class="label">）</span></div>                        
+                        <div class="field"><span class="label">Speed:</span> <span class="value" data-player-speed>${playerSpeed}</span> <span class="warning">&lt;10</span></div>
+                    </div>
                     `;
                     
                     let workflowBox = overlayBody.querySelector('.workflow-box');
@@ -1628,23 +1641,12 @@
                     `;
                     workflowBox = overlayBody.querySelector('.workflow-box');
                 } else {
-                    const fieldRows = overlayBody.querySelectorAll('.field');
-                    if (fieldRows.length >= 5) {
-                        const fieldValues = fieldRows[0].querySelector('.value');
-                        const fieldValuesY = fieldRows[1].querySelector('.value');
-                        const fieldValuesSpeed = fieldRows[2].querySelector('.value');
-                        const fieldValuesEnding = fieldRows[3].querySelector('.value');
-                        const projectStatusPill = fieldRows[4].querySelector('.status-pill');
-
-                        if (fieldValues) fieldValues.textContent = String(playerX);
-                        if (fieldValuesY) fieldValuesY.textContent = String(playerY);
-                        if (fieldValuesSpeed) fieldValuesSpeed.textContent = String(playerSpeed);
-                        if (fieldValuesEnding) fieldValuesEnding.textContent = String(endingCostume);
-                        if (projectStatusPill) {
-                            projectStatusPill.className = `status-pill ${projectStatus}`;
-                            projectStatusPill.textContent = projectStatus;
-                        }
-                    }
+                    const fieldValuesX = overlayBody.querySelector('[data-player-x]');
+                    const fieldValuesY = overlayBody.querySelector('[data-player-y]');
+                    const fieldValuesSpeed = overlayBody.querySelector('[data-player-speed]');
+                    if (fieldValuesX) fieldValuesX.textContent = String(playerX);
+                    if (fieldValuesY) fieldValuesY.textContent = String(playerY);
+                    if (fieldValuesSpeed) fieldValuesSpeed.textContent = String(playerSpeed);
 
                     if (workflowBox) {
                         syncWorkflowMarkup(workflowBox, workflowHtml);
