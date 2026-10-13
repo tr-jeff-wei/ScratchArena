@@ -1204,7 +1204,7 @@
                 `;
             }
 
-            function renderWorkflowFlow(overallState, shareSaveStatus, scoreStatus, nonPlayerStatus, broadcastStatus, speedStatus) {
+            function renderWorkflowFlow( shareSaveStatus, scoreStatus, nonPlayerStatus, broadcastStatus, speedStatus) {
                 const stage1Ready = workflowState.evaluationStarted;
                 const stage1Pass = stage1Ready && shareSaveStatus === 'pass' && scoreStatus === 'pass' && nonPlayerStatus === 'pass' && broadcastStatus === 'pass';
                 const stage2Ready = stage1Pass && workflowState.greenFlagStarted;
@@ -1266,7 +1266,7 @@
                             {
                                 label: '3.1 挑戰成功判定',
                                 status: workflowState.successDetected ? 'pass' : stage2Pass ? 'active' : 'locked',
-                                sub: '判斷成功角色 / 背景已出現'
+                                sub: 'Ending Status 造型為 W 時挑戰成功，為 L 時挑戰失敗'
                             },
                             {
                                 label: '3.2 上傳伺服器回報成果',
@@ -1557,6 +1557,71 @@
 
             registerFlowEventListeners();
 
+            function getScoreStatus(targets) {
+                if (!workflowState.evaluationStarted) return 'unknown';
+                return checkModifyScoreVar(targets) ? 'fail' : 'pass';
+            }
+
+            function getNonPlayerStatus() {
+                if (remixComparisonStatus === 'pass') return 'pass';
+                if (remixComparisonStatus === 'fail') return 'fail';
+                return 'unknown';
+            }
+
+            function getBroadcastStatus(player, nonPlayerTargets) {
+                if (!workflowState.evaluationStarted) return 'unknown';
+
+                const nonPlayerBroadcasts = new Set(getBroadcastNames({
+                    blocks: nonPlayerTargets.flatMap(target => Object.values(target.blocks?._blocks || target.blocks || {}))
+                }));
+                const playerBroadcasts = getBroadcastNames(player);
+
+                if (playerBroadcasts.length === 0) return 'pass';
+                return playerBroadcasts.some(name => nonPlayerBroadcasts.has(name)) ? 'fail' : 'pass';
+            }
+
+            function getSpeedStatus(player, isExecutionMonitoring) {
+                let playerVelocity = 0;
+                if (isExecutionMonitoring && player && playerPreX !== null && playerPreY !== null) {
+                    playerVelocity = Math.sqrt(
+                        (player.x - playerPreX) * (player.x - playerPreX) +
+                        (player.y - playerPreY) * (player.y - playerPreY)
+                    );
+                }
+                if (isExecutionMonitoring && player) {
+                    playerPreX = player.x;
+                    playerPreY = player.y;
+                }
+
+                // 100ms sampling at 30 FPS is about 3 frames; report average movement per frame.
+                const playerSpeed = isExecutionMonitoring && player ? Math.round(playerVelocity / 3 * 100) / 100 : '-';
+                const playerSpeedDisplay = typeof playerSpeed === 'number' ? playerSpeed.toFixed(2) : playerSpeed;
+                const speedStatus = !isExecutionMonitoring || playerSpeed === '未找到' || playerSpeed === '等待開始執行'
+                    ? 'unknown'
+                    : playerSpeed < 10
+                        ? 'pass'
+                        : 'fail';
+
+                return { playerSpeedDisplay, speedStatus };
+            }
+
+            function getChallengeStatus(targets) {
+                if (!workflowState.greenFlagStarted || workflowState.successDetected) return 'unknown';
+
+                const endingStatus = targets.find(target => {
+                    const name = target.sprite?.name || (typeof target.getName === 'function' ? target.getName() : undefined);
+                    return name === 'Ending Status';
+                });
+                if (!endingStatus) return 'unknown';
+
+                const costumeName = endingStatus.sprite?.costumes?.[endingStatus.currentCostume]?.name;
+                if (costumeName === 'W') {
+                    workflowState.successDetected = true;
+                    return 'pass';
+                }
+                return costumeName === 'L' ? 'fail' : 'unknown';
+            }
+
             function refreshOverlay() {
                 const targets = vm.runtime?.targets || [];
                 // 尋找 Player 角色
@@ -1564,74 +1629,55 @@
                     const name = t.sprite?.name || (typeof t.getName === 'function' ? t.getName() : undefined);
                     return name === 'Player';
                 });
+                // 尋找非 Player 角色
+                const nonPlayerTargets = targets.filter(t => {
+                    const name = t.sprite?.name || (typeof t.getName === 'function' ? t.getName() : undefined);
+                    return name !== 'Player';
+                });
+                // console.log('Player:', player);
+                // console.log('Non-Player Targets:', nonPlayerTargets);
+
                 const isExecutionMonitoring = workflowState.greenFlagStarted;
                 const playerX = isExecutionMonitoring && player ? Math.round(player.x )  : '-';
                 const playerY = isExecutionMonitoring && player ? Math.round(player.y )  : '-';
-                let playerVelocity = 0;
-                if (isExecutionMonitoring && player && playerPreX !== null && playerPreY !== null) {
-                    playerVelocity = Math.floor(
-                        Math.sqrt((playerX - playerPreX)*(playerX - playerPreX) + (playerY - playerPreY)*(playerY - playerPreY)));
-                    }
-                    if (isExecutionMonitoring && player) {
-                        playerPreX = playerX;
-                        playerPreY = playerY;
-                    }
-                    // 速度計算需考量 fps
-                    const playerSpeed = isExecutionMonitoring && player ? Math.round(playerVelocity * 100/3) / 100 : '-';
-                    const nonPlayerTargets = targets.filter(t => {
-                        const name = t.sprite?.name || (typeof t.getName === 'function' ? t.getName() : undefined);
-                        return name !== 'Player';
-                    });
-                    
-                    const scoreStatus = workflowState.evaluationStarted
-                    ? (checkModifyScoreVar(targets) ? 'fail' : 'pass')
-                    : 'unknown';
-                    
-                    const nonPlayerStatus = remixComparisonStatus === 'pass' ? 'pass' : remixComparisonStatus === 'fail' ? 'fail' : 'unknown';
-                    
-                    const nonPlayerBroadcasts = new Set(getBroadcastNames({ blocks: nonPlayerTargets.flatMap(t => Object.values(t.blocks?._blocks || t.blocks || {})) }));
-                    const playerBroadcasts = getBroadcastNames(player);
-                    const broadcastStatus = !workflowState.evaluationStarted
-                    ? 'unknown'
-                    : playerBroadcasts.length === 0
-                    ? 'pass'
-                    : playerBroadcasts.some(name => nonPlayerBroadcasts.has(name))
-                    ? 'fail'
-                    : 'pass';
-                    
-                    const speedStatus = !isExecutionMonitoring || playerSpeed === '未找到' || playerSpeed === '等待開始執行'
-                    ? 'unknown'
-                    : playerSpeed < 10
-                    ? 'pass'
-                    : 'fail';
+                const { playerSpeedDisplay, speedStatus } = getSpeedStatus(player, isExecutionMonitoring);
+                const scoreStatus = getScoreStatus(targets);
+                const nonPlayerStatus = getNonPlayerStatus();
+                const broadcastStatus = getBroadcastStatus(player, nonPlayerTargets);
 
-                    // 如果速度超過 10，且已經超過 EVALUATION_HOVER_MS + 500 毫秒，則顯示警告對話框並重置檢測流程
-                    
-                    if(workflowState.greenFlagStarted && Date.now() - greenFlagStartTime  > (greenFlagStartTime+500) && speedStatus === 'fail'){
-                            showWarningDialog(`Player 移動速度 ${playerSpeed} 超過 10，檢測中止！！`);
-                            resetEvaluationWorkflow();
-                            return;
-                    }
-               
-                    const workflowHtml = renderWorkflowFlow(
-                        { evaluationStarted: workflowState.evaluationStarted, greenFlagStarted: workflowState.greenFlagStarted },
-                        workflowState.projectSaved && workflowState.projectShared,
-                        scoreStatus,
-                        nonPlayerStatus,
-                        broadcastStatus,
-                        speedStatus
-                    );
-                    
-                    const staticFieldsHtml = `
-                    <div class="workflow-title">Player 狀態</div>
-                    <div class="player-status-row">
-                        <div class="field"><span class="label">（</span><span class="value" data-player-x>${playerX}</span><span class="label">,</span><span class="value" data-player-y>${playerY}</span><span class="label">）</span></div>                        
-                        <div class="field"><span class="label">Speed:</span> <span class="value" data-player-speed>${playerSpeed}</span> <span class="warning">&lt;10</span></div>
-                    </div>
-                    `;
-                    
-                    let workflowBox = overlayBody.querySelector('.workflow-box');
-                    if (!workflowBox) {
+                // 如果速度超過 10，且已經超過 EVALUATION_HOVER_MS + 500 毫秒，則顯示警告對話框並重置檢測流程
+                
+                if(workflowState.greenFlagStarted && Date.now() - greenFlagStartTime  > (greenFlagStartTime+500) && speedStatus === 'fail'){
+                        showWarningDialog(`Player 移動速度 ${playerSpeedDisplay} 超過 10，檢測中止！！`);
+                        resetEvaluationWorkflow();
+                        return;
+                }
+
+                const challengeStatus = getChallengeStatus(targets);
+                if (challengeStatus === 'fail') {
+                    showWarningDialog('挑戰失敗，檢測中止！！');
+                    resetEvaluationWorkflow();
+                    return;
+                }
+            
+                const workflowHtml = renderWorkflowFlow(                        
+                    workflowState.projectSaved && workflowState.projectShared,
+                    scoreStatus,
+                    nonPlayerStatus,
+                    broadcastStatus,
+                    speedStatus
+                );
+                
+                const staticFieldsHtml = `
+                <div class="workflow-title">Player 狀態</div>
+                <div class="player-status-row">
+                    <div class="field"><span class="label">（</span><span class="value" data-player-x>${playerX}</span><span class="label">,</span><span class="value" data-player-y>${playerY}</span><span class="label">）</span></div>                        
+                    <div class="field"><span class="label">Speed:</span> <span class="value" data-player-speed>${playerSpeedDisplay}</span> <span class="warning">&lt;10</span></div>
+                </div>
+                `;
+                
+                let workflowBox = overlayBody.querySelector('.workflow-box');
+                if (!workflowBox) {
                     overlayBody.innerHTML = `
                         ${staticFieldsHtml}
                         <div class="workflow-box">
@@ -1646,7 +1692,7 @@
                     const fieldValuesSpeed = overlayBody.querySelector('[data-player-speed]');
                     if (fieldValuesX) fieldValuesX.textContent = String(playerX);
                     if (fieldValuesY) fieldValuesY.textContent = String(playerY);
-                    if (fieldValuesSpeed) fieldValuesSpeed.textContent = String(playerSpeed);
+                    if (fieldValuesSpeed) fieldValuesSpeed.textContent = playerSpeedDisplay;
 
                     if (workflowBox) {
                         syncWorkflowMarkup(workflowBox, workflowHtml);
