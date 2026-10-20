@@ -252,7 +252,7 @@
                         border: 1px solid rgba(255, 140, 148, 0.38);
                         border-left: 3px solid #ff8c94;
                         border-radius: 3px;
-                        font-size: 11px;
+                        font-size: 16px;
                         font-weight: 700;
                         line-height: 1.45;
                     }
@@ -264,6 +264,7 @@
                         margin: 0;
                     }
                     #${overlayId} .workflow-group {
+                        margin: 0;
                         min-width: 0;
                         overflow: hidden;
                         background: rgba(17, 27, 34, 0.82);
@@ -333,14 +334,12 @@
                     #${overlayId} .workflow-stage-name {
                         min-width: 0;
                         overflow-wrap: anywhere;
-                        font-size: 11px;
                         font-weight: 700;
                         line-height: 1.35;
                     }
                     #${overlayId} .workflow-stage-status {
                         flex-shrink: 0;
                         color: #9aaeb0;
-                        font-size: 9px;
                         white-space: nowrap;
                     }
                     #${overlayId} .workflow-group.pass .workflow-stage-status { color: #7cf2a7; }
@@ -393,7 +392,6 @@
                         min-width: 0;
                         margin: 0;
                         color: #d7d7e0;
-                        font-size: 10px;
                         line-height: 1.4;
                     }
                     #${overlayId} .workflow-step small {
@@ -653,9 +651,7 @@
                 overlay = document.createElement('div');
                 overlay.id = overlayId;
                 overlay.innerHTML = `
-                    <div class="panel-header">
-                        <h4>Scratch Arena</h4>
-                    </div>
+        
                     <div id="scratch-arena-info-body">等待 VM 初始化...</div>
                 `;
                 document.body.appendChild(overlay);
@@ -1198,7 +1194,7 @@
                     <li class="workflow-step ${status}">
                         <span class="workflow-icon">${icon}</span>
                         <span>
-                            ${stepText}${subText ? `<br><small>${escapeHtml(subText)}</small>` : ''}
+                            ${stepText}
                         </span>
                     </li>
                 `;
@@ -1217,17 +1213,17 @@
                         status: workflowState.evaluationStarted ? (stage1Pass ? 'pass' : 'active') : 'locked',
                         children: [
                             {
-                                label: '1.1 作品儲存與分享檢核',
+                                label: '1.1 作品已儲存並分享',
                                 status: shareSaveStatus === 'pass' ? 'pass' : shareSaveStatus === 'fail' ? 'fail' : stage1Ready ? 'active' : 'locked',
                                 sub: '作品須已儲存並分享'
                             },
                             {
-                                label: '1.2 非更動項目檢核',
+                                label: '1.2 不動項目檢查',
                                 status: nonPlayerStatus === 'pass' ? 'pass' : nonPlayerStatus === 'fail' ? 'fail' : stage1Ready ? 'active' : 'locked',
                                 sub: getNonPlayerCheckDetails()
                             },
                             {
-                                label: '1.3 Player 程式合規檢核',
+                                label: '1.3 Player 程式檢查',
                                 status: scoreStatus === 'pass' && broadcastStatus === 'pass' ? 'pass' : scoreStatus === 'fail' || broadcastStatus === 'fail' ? 'fail' : stage1Ready ? 'active' : 'locked',
                                 sub: '不可修改 Score，且不能使用既有角色廣播事件'
                             }
@@ -1238,24 +1234,9 @@
                         status: workflowState.greenFlagStarted ? (stage2Pass ? 'pass' : 'active') : stage1Pass ? 'active' : 'locked',
                         children: [
                             {
-                                label: '2.1 點擊綠色旗幟開始',
+                                label: '2.1 點擊綠旗開始',
                                 status: workflowState.greenFlagStarted ? 'pass' : stage1Pass ? 'active' : 'locked',
-                                sub: '點擊綠旗後才可進入執行檢核'
-                            },
-                            {
-                                label: '2.2 滑鼠不可離開旗幟',
-                                status: workflowState.mouseLeftFlag ? 'fail' : workflowState.greenFlagStarted ? 'active' : 'locked',
-                                sub: '執行結果前離開旗幟即判定失敗'
-                            },
-                            {
-                                label: '2.3 鍵盤不可有輸入',
-                                status: workflowState.keyboardInputDetected ? 'fail' : workflowState.greenFlagStarted ? 'active' : 'locked',
-                                sub: '執行前不可輸入任何鍵盤訊號'
-                            },
-                            {
-                                label: '2.4 Player 每次移動速度 < 10',
-                                status: speedStatus === 'pass' ? 'pass' : speedStatus === 'fail' ? 'fail' : workflowState.greenFlagStarted ? 'active' : 'locked',
-                                sub: '超過速度上限將直接失敗'
+                                sub: ''
                             }
                         ]
                     },
@@ -1264,12 +1245,12 @@
                         status: workflowState.successDetected ? (workflowState.uploadReported ? 'pass' : 'active') : stage2Pass ? 'active' : 'locked',
                         children: [
                             {
-                                label: '3.1 挑戰成功判定',
+                                label: '3.1 挑戰成功',
                                 status: workflowState.successDetected ? 'pass' : stage2Pass ? 'active' : 'locked',
                                 sub: 'Ending Status 造型為 W 時挑戰成功，為 L 時挑戰失敗'
                             },
                             {
-                                label: '3.2 上傳伺服器回報成果',
+                                label: '3.2 上傳伺服器',
                                 status: workflowState.uploadReported ? 'pass' : workflowState.successDetected ? 'active' : 'locked',
                                 sub: '檢核通過後回報服務器'
                             }
@@ -1302,10 +1283,12 @@
                         : ' counting';
 
                 return `
-                    <div class="workflow-guidance" role="note">全程保持滑鼠在綠旗按鈕上，禁止所有鍵盤輸入</div>
-                    <div class="workflow-button-wrap${promptStateClass}" aria-live="polite">
-                        <div class="workflow-status${promptStateClass}">${evaluationPrompt}</div>
-                    </div>
+                <div class="workflow-button-wrap${promptStateClass}" aria-live="polite">
+                <div class="workflow-status${promptStateClass}">${evaluationPrompt}</div>
+                </div>
+                <div class="workflow-guidance" role="note">滑鼠保持在綠旗上</div>
+                <div class="workflow-guidance" role="note">禁止所有鍵盤輸入</div>
+                <div class="workflow-guidance" role="note">移動速度 < 10 </div>
                     <ul class="workflow-list">
                         ${workflow.map((group, index) => {
                             const expanded = expandedWorkflowStages.has(index);
