@@ -459,6 +459,19 @@
                         background: rgba(17, 27, 34, 0.72);
                         transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
                     }
+                    #${overlayId} .workflow-button-wrap.blocked {
+                        border-color: rgba(255, 126, 126, 0.55);
+                        background: rgba(55, 31, 34, 0.82);
+                        box-shadow: none;
+                        animation: none;
+                        pointer-events: none;
+                    }
+                    #${overlayId} .workflow-button-wrap.blocked .workflow-status {
+                        color: #ffdada;
+                        background: rgba(85, 42, 46, 0.72);
+                        border-color: rgba(255, 153, 153, 0.45);
+                        animation: none;
+                    }
                     #${overlayId} .workflow-button-wrap.attention {
                         border-color: rgba(255, 190, 91, 0.82);
                         background: linear-gradient(135deg, rgba(104, 61, 19, 0.55), rgba(33, 28, 21, 0.92));
@@ -1271,19 +1284,24 @@
                 const hoverSeconds = evaluationHoverStartedAt === null
                     ? 0
                     : Math.min(EVALUATION_HOVER_MS, Date.now() - evaluationHoverStartedAt) / 1000;
-                const evaluationPrompt = workflowState.evaluationStarted
-                    ? '檢核啟動'
-                    : evaluationHoverStartedAt === null
-                        ? `停止專案 + 滑鼠移到綠旗  >>>>  啟動檢核 `
-                        : `檢核 ${(EVALUATION_HOVER_MS / 1000 - hoverSeconds).toFixed(1)} 秒 啟動`;
-                const promptStateClass = workflowState.evaluationStarted
-                    ? ''
-                    : evaluationHoverStartedAt === null
-                        ? ' attention'
-                        : ' counting';
+                const projectRunning = !workflowState.evaluationStarted && getProjectStatus() === 'running';
+                const evaluationPrompt = projectRunning
+                    ? '停止專案，才可以檢核'
+                    : workflowState.evaluationStarted
+                        ? '檢核啟動'
+                        : evaluationHoverStartedAt === null
+                            ? `滑鼠移到綠旗 >>> 啟動檢核 `
+                            : `檢核 ${(EVALUATION_HOVER_MS / 1000 - hoverSeconds).toFixed(1)} 秒 啟動`;
+                const promptStateClass = projectRunning
+                    ? ' blocked'
+                    : workflowState.evaluationStarted
+                        ? ''
+                        : evaluationHoverStartedAt === null
+                            ? ' attention'
+                            : ' counting';
 
                 return `
-                <div class="workflow-button-wrap${promptStateClass}" aria-live="polite">
+                <div class="workflow-button-wrap${promptStateClass}" aria-live="polite" aria-disabled="${projectRunning}">
                 <div class="workflow-status${promptStateClass}">${evaluationPrompt}</div>
                 </div>
                 <div class="workflow-guidance" role="note">滑鼠保持在綠旗上</div>
@@ -1398,7 +1416,7 @@
                 document.addEventListener('click', (event) => {
                     console.log('Click event detected:', event.target);
                     const flagButton = findGreenFlagButton();
-                    if (!flagButton || workflowState.greenFlagStarted || !workflowState.evaluationStarted) return;
+                    if (!flagButton || getProjectStatus() !== 'stopped' || workflowState.greenFlagStarted || !workflowState.evaluationStarted) return;
                     if (!isStage1Passed()) return;
                     if (event.target === flagButton || flagButton.contains(event.target)) {
                         workflowState.greenFlagStarted = true;
@@ -1408,7 +1426,7 @@
                         startExecutionMonitoring();
                         refreshOverlay();
                     }
-                });
+                }, true);
 
                 document.addEventListener('keydown', (event) => {
                     console.log('Keydown event detected:', event.key);                    
@@ -1445,7 +1463,7 @@
                         evaluationHoverStartedAt = Date.now();
                         evaluationHoverTimer = setInterval(() => {
                             const currentFlag = findGreenFlagButton();
-                            if (!currentFlag) {
+                            if (!currentFlag || getProjectStatus() !== 'stopped') {
                                 resetEvaluationWorkflow();
                                 return;
                             }
@@ -1529,6 +1547,7 @@
 
             function startEvaluation() {
                 if (workflowState.evaluationStarted) return;
+                evaluationHoverStartedAt = null;
                 evaluationRunId += 1;
                 workflowState.evaluationStarted = true;
                 workflowState.projectShared = getProjectShareStatus();
@@ -1685,6 +1704,17 @@
             }
 
             refreshOverlay();
+            let lastProjectStatus = getProjectStatus();
+            window.__scratchArenaStore.subscribe(() => {
+                const projectStatus = getProjectStatus();
+                if (projectStatus === lastProjectStatus) return;
+                lastProjectStatus = projectStatus;
+                if (projectStatus === 'running' && evaluationHoverStartedAt !== null) {
+                    resetEvaluationWorkflow();
+                    return;
+                }
+                refreshOverlay();
+            });
 
         } else if (Date.now() - startedAt < MAX_WAIT_MS) {
             attempts += 1;
