@@ -812,17 +812,17 @@
             // sprite 與 stage 都套用相同邏輯
             function variableNamesMatch(sourceVariables, currentVariables) {
                 const sourceNames = new Set(normalizeVariables(sourceVariables).map(variable => variable.name));
-                console.log('variableNamesMatch => sourceVariables:', sourceVariables);
-                console.log('variableNamesMatch => sourceNames:', sourceNames);
+                // console.log('variableNamesMatch => sourceVariables:', sourceVariables);
+                // console.log('variableNamesMatch => sourceNames:', sourceNames);
                 const currentNames = new Set(normalizeVariables(currentVariables).map(variable => variable.name));
-                console.log('variableNamesMatch => currentVariables:', currentVariables);
-                console.log('variableNamesMatch => currentNames:', currentNames);
+                // console.log('variableNamesMatch => currentVariables:', currentVariables);
+                // console.log('variableNamesMatch => currentNames:', currentNames);
                 return [...sourceNames].every(name => currentNames.has(name));
             }
 
 
             function normalizeBlockChain(blocksMap, startBlockId) {
-                console.log('normalizeBlockChain => ', blocksMap, startBlockId);
+                // console.log('normalizeBlockChain => ', blocksMap, startBlockId);
                 const script = [];
                 let currentId = startBlockId;
                 while (currentId) {
@@ -850,7 +850,7 @@
                 const topLevelBlocks = allBlocks.filter(block => block && typeof block.id === 'string' && block.topLevel === true);
                 // console.log('topLevelBlocks => ', topLevelBlocks);
                 const scriptChains = topLevelBlocks.map(block => normalizeBlockChain(blocksMap, block.id));
-                console.log('normalizeBlocks => ', scriptChains);
+                // console.log('normalizeBlocks => ', scriptChains);
                 return scriptChains;
             }
 
@@ -955,10 +955,10 @@
                         if (result.missing) {
                             changedItems.push(sourceTarget ? '缺少角色' : '新增角色');
                         } else {
-                            if (!result.variablesMatch) changedItems.push('變數');
-                            if (!result.listsMatch) changedItems.push('清單');
-                            if (!result.blocksMatch) changedItems.push('程式');
-                            if (!result.costumesMatch) changedItems.push('造型');                           
+                            if (!result.variablesMatch) changedItems.push('變數不一致');
+                            if (!result.listsMatch) changedItems.push('清單不一致');
+                            if (!result.blocksMatch) changedItems.push('程式不一致');
+                            if (!result.costumesMatch) changedItems.push('造型不一致');                           
                         }
 
                         details.push({
@@ -973,8 +973,8 @@
                         });
                     });
 
-                    console.log('===================================');
-                    console.log('remix comparison details => ', details);
+                    // console.log('===================================');
+                    // console.log('remix comparison details => ', details);
 
                     const status = details.length === 0 ? 'unknown' : details.every(item => item.overallMatch) ? 'pass' : 'fail';
                     return { status, details };
@@ -993,12 +993,18 @@
                             ? result.details.filter(item => !item.overallMatch)
                             : [];
                         refreshOverlay();
+                        if(remixComparisonStatus!='pass'){
+                            showWarningDialog(getNonPlayerCheckDetails()+"，檢測中止！！");
+                            resetEvaluationWorkflow();
+                        }
                     })
                     .catch(error => {
                         if (runId !== evaluationRunId) return;
                         remixComparisonStatus = 'unknown';
                         remixComparisonFailures = [];
                         console.warn('ScratchArena: Remix 比對失敗：', error?.message || error);
+                        showWarningDialog("原始專案比對失敗，檢測中止！！");
+                        resetEvaluationWorkflow(); 
                         refreshOverlay();
                     });
             }
@@ -1191,7 +1197,7 @@
 
             function getNonPlayerCheckDetails() {
                 if (remixComparisonStatus !== 'fail') {
-                    return '背景與非 Player 角色需與 remix 原始來源一致';
+                    return '背景與非 Player 角色需與題目原始來源一致';
                 }
 
                 const failures = remixComparisonFailures.map(item => {
@@ -1231,7 +1237,7 @@
                                 sub: '作品須已儲存並分享'
                             },
                             {
-                                label: '1.2 不動項目檢查',
+                                label: '1.2 不變項目檢查',
                                 status: nonPlayerStatus === 'pass' ? 'pass' : nonPlayerStatus === 'fail' ? 'fail' : stage1Ready ? 'active' : 'locked',
                                 sub: getNonPlayerCheckDetails()
                             },
@@ -1700,7 +1706,18 @@
                         syncWorkflowMarkup(workflowBox, workflowHtml);
                     }
                 }
-
+                // console.log("status: "+workflowState.evaluationStarted+" shared: "+workflowState.projectShared+" saved: "+workflowState.projectSaved);
+                if(workflowState.evaluationStarted && workflowState.projectSaved!='pass'){
+                        showWarningDialog(`作品必須已儲存，檢測中止！！`);
+                        resetEvaluationWorkflow();
+                        return;
+                }
+                if(workflowState.evaluationStarted && workflowState.projectShared!='pass'){
+                        showWarningDialog(`作品必須已分享，檢測中止！！`);
+                        resetEvaluationWorkflow();
+                        return;
+                }
+                
             }
 
             refreshOverlay();
