@@ -473,9 +473,9 @@
                         animation: none;
                     }
                     #${overlayId} .workflow-button-wrap.attention {
-                        border-color: rgba(255, 190, 91, 0.82);
-                        background: linear-gradient(135deg, rgba(104, 61, 19, 0.55), rgba(33, 28, 21, 0.92));
-                        box-shadow: 0 0 0 1px rgba(255, 190, 91, 0.16), 0 0 20px rgba(255, 170, 55, 0.2);
+                        border-color: rgba(112, 184, 255, 0.82);
+                        background: linear-gradient(135deg, rgba(25, 67, 116, 0.62), rgba(20, 29, 43, 0.94));
+                        box-shadow: 0 0 0 1px rgba(112, 184, 255, 0.16), 0 0 20px rgba(65, 145, 235, 0.22);
                         animation: workflowPromptGlow 1.6s ease-in-out infinite;
                     }
                     #${overlayId} .workflow-button-wrap.attention::before {
@@ -484,7 +484,7 @@
                         bottom: 0;
                         left: -45%;
                         width: 35%;
-                        background: linear-gradient(90deg, transparent, rgba(255, 230, 176, 0.16), transparent);
+                        background: linear-gradient(90deg, transparent, rgba(190, 222, 255, 0.2), transparent);
                         content: '';
                         pointer-events: none;
                         animation: workflowPromptSweep 2.8s ease-in-out infinite;
@@ -507,8 +507,8 @@
                         animation: workflowPromptSweep 1.8s ease-in-out infinite;
                     }
                     @keyframes workflowPromptGlow {
-                        0%, 100% { box-shadow: 0 0 0 1px rgba(255, 190, 91, 0.12), 0 0 12px rgba(255, 170, 55, 0.12); }
-                        50% { box-shadow: 0 0 0 2px rgba(255, 190, 91, 0.32), 0 0 25px rgba(255, 170, 55, 0.34); }
+                        0%, 100% { box-shadow: 0 0 0 1px rgba(112, 184, 255, 0.12), 0 0 12px rgba(65, 145, 235, 0.14); }
+                        50% { box-shadow: 0 0 0 2px rgba(112, 184, 255, 0.34), 0 0 25px rgba(65, 145, 235, 0.36); }
                     }
                     @keyframes workflowPromptGreenGlow {
                         0%, 100% { box-shadow: 0 0 0 1px rgba(124, 242, 167, 0.28), 0 0 14px rgba(65, 184, 139, 0.22); }
@@ -531,19 +531,19 @@
                         border-radius: 6px;
                         color: #dcebe2;
                         font-weight: 700;
-                        font-size: 13px;
+                        font-size: 16px;
                         line-height: 1.55;
                         text-align: center;
                     }
                     #${overlayId} .workflow-button-wrap.attention .workflow-status {
                         padding: 15px 14px;
-                        color: #fff0ce;
+                        color: #e5f2ff;
                         background:
-                            linear-gradient(105deg, transparent 20%, rgba(255, 218, 153, 0.18) 50%, transparent 80%),
-                            linear-gradient(135deg, rgba(111, 66, 20, 0.5), rgba(34, 29, 22, 0.96));
+                            linear-gradient(105deg, transparent 20%, rgba(190, 222, 255, 0.2) 50%, transparent 80%),
+                            linear-gradient(135deg, rgba(28, 74, 126, 0.62), rgba(20, 29, 43, 0.97));
                         background-size: 220% 100%, 100% 100%;
-                        border-color: rgba(255, 190, 91, 0.5);
-                        font-size: 14px;
+                        border-color: rgba(112, 184, 255, 0.56);
+                        font-size: 16px;
                         animation: workflowPromptShine 2.8s ease-in-out infinite;
                     }
                     #${overlayId} .workflow-button-wrap.counting .workflow-status {
